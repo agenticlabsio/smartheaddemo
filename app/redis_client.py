@@ -1,4 +1,8 @@
-import redis.asyncio as redis
-import os
+import redis
+r = redis.Redis.from_url("your-upstash-url")
 
-r = redis.from_url(os.getenv("UPSTASH_REDIS_URL"), decode_responses=True)
+def load_session(user_id):
+    return r.get(f"session:apollo:{user_id}")
+
+def save_session(user_id, session_data):
+    r.setex(f"session:apollo:{user_id}", 3600, json.dumps(session_data))
