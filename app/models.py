@@ -148,5 +148,5 @@ class ReservationRequest(BaseModel):
 
 class APIResponse(BaseModel):
     status: str
-    data: Optional[dict]
+    data: Optional[List[dict]]
     error: Optional[dict] = {}

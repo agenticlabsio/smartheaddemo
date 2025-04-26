@@ -1,15 +1,12 @@
 import json
-import redis
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import BaseOutputParser
 from langgraph.graph import StateGraph, END
 from langfuse import Langfuse
+from ..redis_client import save_session, load_session
 
 # === Setup ===
-# Redis Setup
-redis_client = redis.Redis.from_url("your-upstash-url")
-
 # Langfuse Setup
 langfuse = Langfuse(secret_key="sk-...", public_key="pk-...")
 
@@ -19,16 +16,6 @@ llm = ChatOpenAI(temperature=0.3, model_name="gpt-4")
 # === State Schema ===
 class BookingState(dict):
     pass
-
-# === Session Helpers ===
-def load_session(apollo_user_id):
-    session = redis_client.get(f"session:apollo:{apollo_user_id}")
-    if session:
-        return json.loads(session)
-    return {}
-
-def save_session(apollo_user_id, data):
-    redis_client.setex(f"session:apollo:{apollo_user_id}", 3600, json.dumps(data))
 
 # === Nodes with Langfuse tracing ===
 def start_node(state: BookingState) -> BookingState:
@@ -40,7 +27,6 @@ def start_node(state: BookingState) -> BookingState:
     session = load_session(user_id)
     state.update(session)
     
-    trace.end()
     return state
 
 def patient_selection_node(state: BookingState) -> BookingState:
@@ -209,7 +195,7 @@ def exit_node(state: BookingState) -> BookingState:
     return state
 
 # === LangGraph ===
-graph = StateGraph()
+graph = StateGraph(BookingState)
 
 graph.add_node("start", start_node)
 graph.add_node("select_patient", patient_selection_node)
