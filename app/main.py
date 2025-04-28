@@ -28,6 +28,9 @@ user_router = APIRouter()
 availabilities_router = APIRouter()
 attendees_router = APIRouter()
 bookings_router = APIRouter()
+event_router = APIRouter()
+schedule_router = APIRouter()
+webhooks_router = APIRouter()
 
 CAL_API_KEY = os.getenv("CAL_API_KEY")
 CAL_API_BASE_URL = "https://api.cal.com/v1"
@@ -45,6 +48,58 @@ def get_cal_api_params():
 @app.get("/")
 def read_root():
     return {"message": "Cal.com API Integration with FastAPI"}
+
+# Webhook Helper Functions
+def make_request(method: str, url: str, data: dict = None, headers: dict = None):
+    try:
+        if method == "GET":
+            response = requests.get(url, headers=headers)
+        elif method == "POST":
+            response = requests.post(url, json=data, headers=headers)
+        elif method == "PATCH":
+            response = requests.patch(url, json=data, headers=headers)
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers)
+
+        response.raise_for_status()
+        return response.json() if response.content else {}
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@webhooks_router.get("/webhooks", response_model=APIResponse)
+async def get_webhooks():
+    url = "https://api.cal.com/v1/webhooks"
+    api_response = make_request("GET", url, data=None)
+    return APIResponse(status="success", data=api_response, error={})
+
+@webhooks_router.post("/webhooks", response_model=APIResponse)
+async def create_webhook(payload: Dict = Body(...)):
+    url = "https://api.cal.com/v1/webhooks"
+    headers = {"Content-Type": "application/json"}
+    api_response = make_request("POST", url, data=payload, headers=headers)
+    return APIResponse(status="success", data=api_response, error={})
+
+@webhooks_router.get("/webhooks/{webhook_id}", response_model=APIResponse)
+async def get_webhook(webhook_id: str):
+    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
+    api_response = make_request("GET", url, data=None)
+    return APIResponse(status="success", data=api_response, error={})
+
+@webhooks_router.delete("/webhooks/{webhook_id}", response_model=APIResponse)
+async def delete_webhook(webhook_id: str):
+    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
+    api_response = make_request("DELETE", url, data=None)
+    return APIResponse(status="success", data=api_response, error={})
+
+@webhooks_router.patch("/webhooks/{webhook_id}", response_model=APIResponse)
+async def update_webhook(webhook_id: str, payload: Dict = Body(...)):
+    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
+    headers = {"Content-Type": "application/json"}
+    api_response = make_request("PATCH", url, data=payload, headers=headers)
+    return APIResponse(status="success", data=api_response, error={})
 
 # User API endpoints
 @user_router.get("/users", response_model=APIResponse)
@@ -496,13 +551,235 @@ async def get_slots(
             status_code=response.status_code if hasattr(response, 'status_code') else 500,
             detail=f"Cal.com API error: {str(e)}"
         )
+    
+@event_router.get("/event-types", response_model=APIResponse)
+async def get_event_types(params: Dict = Depends(get_cal_api_params)):
+    """
+    Get all event types
+    """
+    url = "https://api.cal.com/v1/event-types"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@event_router.post("/event-types", response_model=APIResponse)
+async def create_event_type(
+    event_data: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Create a new event type
+    """
+    url = "https://api.cal.com/v1/event-types"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, json=event_data, params=params, headers=headers)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@event_router.get("/event-types/{event_type_id}", response_model=APIResponse)
+async def get_event_type(
+    event_type_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get a specific event type by ID
+    """
+    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@event_router.delete("/event-types/{event_type_id}", response_model=APIResponse)
+async def delete_event_type(
+    event_type_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Delete an event type by ID
+    """
+    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@event_router.patch("/event-types/{event_type_id}", response_model=APIResponse)
+async def update_event_type(
+    event_type_id: str,
+    event_data: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Update an event type by ID
+    """
+    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.patch(url, json=event_data, params=params, headers=headers)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@event_router.get("/teams/{team_id}/event-types", response_model=APIResponse)
+async def get_event_types_for_team(
+    team_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get event types for a specific team
+    """
+    url = f"https://api.cal.com/v1/teams/{team_id}/event-types"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@schedule_router.get("/schedules", response_model=APIResponse)
+async def get_schedules(params: Dict = Depends(get_cal_api_params)):
+    """
+    Get all schedules
+    """
+    url = "https://api.cal.com/v1/schedules"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@schedule_router.post("/schedules", response_model=APIResponse)
+async def create_schedule(
+    schedule_data: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Create a new schedule
+    """
+    url = "https://api.cal.com/v1/schedules"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, json=schedule_data, params=params, headers=headers)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@schedule_router.get("/schedules/{schedule_id}", response_model=APIResponse)
+async def get_schedule(
+    schedule_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get a specific schedule by ID
+    """
+    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@schedule_router.delete("/schedules/{schedule_id}", response_model=APIResponse)
+async def delete_schedule(
+    schedule_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Delete a schedule by ID
+    """
+    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@schedule_router.patch("/schedules/{schedule_id}", response_model=APIResponse)
+async def update_schedule(
+    schedule_id: str,
+    schedule_data: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Update a schedule by ID
+    """
+    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.patch(url, json=schedule_data, params=params, headers=headers)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
 
 
 app.include_router(user_router, prefix="/user", tags=["User"])
 app.include_router(availabilities_router, prefix="/availabilities", tags=["Availability"])
 app.include_router(attendees_router, prefix="/attendees", tags=["Attendee"])
 app.include_router(bookings_router, prefix="/bookings", tags=["Booking"])
-
+app.include_router(event_router, prefix="/event-types")
+app.include_router(schedule_router, prefix="/schedules")
+app.include_router(webhooks_router, prefix="/webhooks")
 
 # Run with: uvicorn main:app --reload
 if __name__ == "__main__":
