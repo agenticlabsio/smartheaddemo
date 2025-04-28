@@ -1,51 +1,84 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Union
+from enum import Enum
 
-class TimeFormat(int):
-    twelve = 12
-    twentyfour = 24
+
+# Enums for validation
+class WeekStart(str, Enum):
+    SUNDAY = "Sunday"
+    MONDAY = "MONDAY"
+    TUESDAY = "TUESDAY"
+    WEDNESDAY = "WEDNESDAY"
+    THURSDAY = "THURSDAY"
+    FRIDAY = "FRIDAY"
+    SATURDAY = "SATURDAY"
+
+class Theme(str, Enum):
+    LIGHT = "LIGHT"
+    DARK = "DARK"
+
+class TimeFormat(str, Enum):
+    TWELVE = "TWELVE"
+    TWENTY_FOUR = "TWENTY_FOUR"
+
+class UserRole(str, Enum):
+    USER = "USER"
+    ADMIN = "ADMIN"
 
 class Metadata(BaseModel):
     key: str
 
 class User(BaseModel):
     id: Optional[int] = None
-    email: str
-    username: Optional[str] = None
-    name: str
-    bio: Optional[str] = None
-    timeZone: str = "UTC"
-    weekStart: str = "Sunday"
-    createdDate: Optional[datetime] = None
-    timeFormat: int = 12
-    defaultScheduleId: Optional[int] = None
-    locale: str = "en"
-    avatarUrl: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-class CreateUserRequest(BaseModel):
-    email: str
-    name: str
-    timeFormat: int = 12
-    weekStart: str = "Monday"
-    timeZone: str = "America/New_York"
-    locale: str = "en"
-    avatarUrl: Optional[str] = None
-    bio: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-class UpdateUserRequest(BaseModel):
-    email: Optional[str] = None
+    username: str
     name: Optional[str] = None
-    timeFormat: Optional[int] = None
-    defaultScheduleId: Optional[int] = None
-    weekStart: Optional[str] = None
+    email: str
+    emailVerified: Optional[datetime] = None
+    bio: Optional[str] = ""
     timeZone: Optional[str] = None
+    weekStart: Optional[str] = None
+    endTime: Optional[int] = None
+    bufferTime: Optional[int] = None
+    appTheme: Optional[str] = None
+    theme: Optional[str] = None
+    defaultScheduleId: Optional[int] = None
     locale: Optional[str] = None
-    avatarUrl: Optional[str] = None
-    bio: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    timeFormat: Optional[int] = None
+    hideBranding: Optional[bool] = None
+    brandColor: Optional[str] = None
+    darkBrandColor: Optional[str] = None
+    allowDynamicBooking: Optional[bool] = None
+    createdDate: Optional[datetime] = None
+    verified: Optional[bool] = None
+    invitedTo: Optional[str] = None
+    role: Optional[str] = None
+
+class UsersResponse(BaseModel):
+    users: List[User]
+    total: int
+
+class UserCreateRequest(BaseModel):
+    email: str
+    username: str
+    weekStart: Optional[WeekStart] = None
+    brandColor: Optional[str] = None
+    darkBrandColor: Optional[str] = None
+    timeZone: Optional[str] = None
+    theme: Optional[Theme] = None
+    timeFormat: Optional[TimeFormat] = None
+    locale: Optional[str] = None
+
+class UserUpdateRequest(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None
+    weekStart: Optional[WeekStart] = None
+    brandColor: Optional[str] = None
+    darkBrandColor: Optional[str] = None
+    timeZone: Optional[str] = None
+    theme: Optional[Theme] = None
+    timeFormat: Optional[TimeFormat] = None
+    locale: Optional[str] = None
 
 class TokenInfo(BaseModel):
     accessToken: str
@@ -146,7 +179,35 @@ class ReservationRequest(BaseModel):
     slotDuration: str
     reservationDuration: Optional[int] = 5
 
-class APIResponse(BaseModel):
-    status: str
-    data: Optional[List[dict]]
-    error: Optional[dict] = {}
+class UserCreateRequest(BaseModel):
+    email: str
+    username: str
+    weekStart: Optional[str] = "SUNDAY"
+    brandColor: Optional[str] = None
+    darkBrandColor: Optional[str] = None
+    timeZone: Optional[str] = "America/New_York"
+    theme: Optional[str] = "LIGHT"
+    timeFormat: Optional[str] = "TWELVE"
+    locale: Optional[str] = "en"
+
+class UserUpdateRequest(BaseModel):
+    email: Optional[str] = None
+    username: Optional[str] = None
+    weekStart: Optional[str] = None
+    brandColor: Optional[str] = None
+    darkBrandColor: Optional[str] = None
+    timeZone: Optional[str] = None
+    theme: Optional[str] = None
+    timeFormat: Optional[str] = None
+    locale: Optional[str] = None
+
+class AttendeeCreateRequest(BaseModel):
+    bookingId: int
+    email: str
+    name: str
+    timeZone: Optional[str] = None
+
+class AttendeeUpdateRequest(BaseModel):
+    email: Optional[str] = None
+    name: Optional[str] = None
+    timeZone: Optional[str] = None

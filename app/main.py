@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, Body, Path
+from fastapi import FastAPI, HTTPException, Depends, Query, Body, Path, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, Optional, List, Union
 import requests
@@ -24,285 +24,485 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CAL_API_KEY = os.getenv("CAL_API_KEY")
-CAL_API_BASE_URL = "https://api.cal.com/v2"
-CAL_API_SLOTS_URL = f"{CAL_API_BASE_URL}/slots"
-CAL_API_RESERVATIONS_URL = f"{CAL_API_SLOTS_URL}/reservations"
-CAL_API_BOOKINGS_URL = f"{CAL_API_BASE_URL}/bookings"
-CAL_API_SCHEDULES_URL = f"{CAL_API_BASE_URL}/schedules"
-CAL_API_EVENT_TYPES_URL = f"{CAL_API_BASE_URL}/event-types"
-CAL_API_AVAILABILITY_URL = f"{CAL_API_BASE_URL}/availability"
+user_router = APIRouter()
+availabilities_router = APIRouter()
+attendees_router = APIRouter()
+bookings_router = APIRouter()
 
-# Dependency for headers
-def get_cal_headers():
-    return {"Authorization": f"Bearer {CAL_API_KEY}"}  # Updated to use Bearer token
+CAL_API_KEY = os.getenv("CAL_API_KEY")
+CAL_API_BASE_URL = "https://api.cal.com/v1"
+CAL_API_USERS_URL = f"{CAL_API_BASE_URL}/users"
+CAL_API_ATTENDEES_URL = f"{CAL_API_BASE_URL}/attendees"
+CAL_API_SLOTS_URL = f"{CAL_API_BASE_URL}/slots"
+CAL_API_BOOKINGS_URL = "https://api.cal.com/v1/bookings"
+CAL_API_AVAILABILITIES_URL = "https://api.cal.com/v1/availabilities"
+
+# Function to get API key as query parameter
+def get_cal_api_params():
+    return {"apiKey": CAL_API_KEY}
 
 # Routes
 @app.get("/")
 def read_root():
     return {"message": "Cal.com API Integration with FastAPI"}
 
-@app.get("/bookings", response_model=APIResponse)
-async def get_bookings(
-    status: Optional[str] = Query(None, description="Filter bookings by status"),
-    limit: Optional[int] = Query(10, description="Number of results per page"),
-    page: Optional[int] = Query(1, description="Page number for pagination"),
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
+# User API endpoints
+@user_router.get("/users", response_model=APIResponse)
+async def get_users(params: Dict = Depends(get_cal_api_params)):
     """
-    Get all bookings for the authenticated user
+    Get all users
     """
-    url = f"{CAL_API_BOOKINGS_URL}"
-    params = {}
-    if status:
-        params["status"] = status
-    if limit:
-        params["limit"] = limit
-    if page:
-        params["page"] = page
-    
+    url = CAL_API_USERS_URL
     try:
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
-
-@app.get("/bookings/{booking_id}", response_model=APIResponse)
-async def get_booking(
-    booking_id: int,
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Get details of a specific booking
-    """
-    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
-
-@app.delete("/bookings/{booking_id}", response_model=APIResponse)
-async def cancel_booking(
-    booking_id: int,
-    cancellation_reason: Optional[str] = Query(None, description="Reason for cancellation"),
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Cancel a booking
-    """
-    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
-    params = {}
-    if cancellation_reason:
-        params["cancellationReason"] = cancellation_reason
-    
-    try:
-        response = requests.delete(url, params=params, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
-
-@app.get("/schedules", response_model=APIResponse)
-async def get_schedules(headers: Dict[str, str] = Depends(get_cal_headers)):
-    """
-    Get all schedules for the authenticated user
-    """
-    url = f"{CAL_API_SCHEDULES_URL}"
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        api_response = response.json()
-        return APIResponse(status="success", data=api_response.get("data", []), error={})
-
+        api_response = response.json() if response.content else {}
+        print(api_response)
+        return APIResponse(status="success", data=api_response, error={})
     except requests.RequestException as e:
         raise HTTPException(
             status_code=response.status_code if hasattr(response, 'status_code') else 500,
             detail=f"Cal.com API error: {str(e)}"
         )
 
-@app.get("/schedules/{schedule_id}", response_model=APIResponse)
-async def get_schedule(
-    schedule_id: int,
-    headers: Dict[str, str] = Depends(get_cal_headers)
+@user_router.post("/users", response_model=APIResponse)
+async def create_user(
+    user_data: UserCreateRequest = Body(...),
+    params: Dict = Depends(get_cal_api_params)
 ):
     """
-    Get details of a specific schedule
+    Create a new user
     """
-    url = f"{CAL_API_SCHEDULES_URL}/{schedule_id}"
-    
+    url = CAL_API_USERS_URL
+    headers = {"Content-Type": "application/json"}
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.post(
+            url, 
+            json=user_data.dict(exclude_none=True), 
+            params=params,
+            headers=headers
+        )
         response.raise_for_status()
-        return response.json()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
     except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
 
-@app.get("/event-types", response_model=APIResponse)
-async def get_event_types(headers: Dict[str, str] = Depends(get_cal_headers)):
-    """
-    Get all event types for the authenticated user
-    """
-    url = f"{CAL_API_EVENT_TYPES_URL}"
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        api_data = response.json()
-        return {
-            "status": "success",
-            "data": [api_data],  # wrap it in a list
-            "error": {}
-        }
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
-
-@app.get("/event-types/{event_type_id}", response_model=APIResponse)
-async def get_event_type(
-    event_type_id: int,
-    headers: Dict[str, str] = Depends(get_cal_headers)
+@user_router.get("/users/{user_id}", response_model=APIResponse)
+async def get_user(
+    user_id: str,
+    params: Dict = Depends(get_cal_api_params)
 ):
     """
-    Get details of a specific event type
+    Get a specific user by ID
     """
-    url = f"{CAL_API_EVENT_TYPES_URL}/{event_type_id}"
-    
+    url = f"{CAL_API_USERS_URL}/{user_id}"
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
     except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                           detail=f"Cal.com API error: {str(e)}")
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
 
-@app.get("/availability", response_model=APIResponse)
+@user_router.patch("/users/{user_id}", response_model=APIResponse)
+async def update_user(
+    user_id: str,
+    user_data: UserUpdateRequest = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Update an existing user
+    """
+    url = f"{CAL_API_USERS_URL}/{user_id}"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.patch(
+            url, 
+            json=user_data.dict(exclude_none=True), 
+            params=params,
+            headers=headers
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@user_router.delete("/users/{user_id}", response_model=APIResponse)
+async def delete_user(
+    user_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Delete a user by ID
+    """
+    url = f"{CAL_API_USERS_URL}/{user_id}"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+# Attendees API endpoints
+@attendees_router.get("/attendees", response_model=APIResponse)
+async def get_attendees(params: Dict = Depends(get_cal_api_params)):
+    """
+    Get all attendees
+    """
+    url = CAL_API_ATTENDEES_URL
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@attendees_router.post("/attendees", response_model=APIResponse)
+async def create_attendee(
+    attendee_data: AttendeeCreateRequest = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Create a new attendee
+    """
+    url = CAL_API_ATTENDEES_URL
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(
+            url, 
+            json=attendee_data.dict(exclude_none=True), 
+            params=params,
+            headers=headers
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@attendees_router.get("/attendees/{attendee_id}", response_model=APIResponse)
+async def get_attendee(
+    attendee_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get a specific attendee by ID
+    """
+    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@attendees_router.patch("/attendees/{attendee_id}", response_model=APIResponse)
+async def update_attendee(
+    attendee_id: str,
+    attendee_data: AttendeeUpdateRequest = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Update an existing attendee
+    """
+    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.patch(
+            url, 
+            json=attendee_data.dict(exclude_none=True), 
+            params=params,
+            headers=headers
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@attendees_router.delete("/attendees/{attendee_id}", response_model=APIResponse)
+async def delete_attendee(
+    attendee_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Delete an attendee by ID
+    """
+    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+
+@availabilities_router.post("/availabilities", response_model=APIResponse)
+async def create_availability(
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Create a new availability
+    """
+    try:
+        response = requests.post(
+            CAL_API_AVAILABILITIES_URL,
+            json=payload,
+            params=params,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@availabilities_router.get("/availabilities/{availability_id}", response_model=APIResponse)
 async def get_availability(
-    date_from: str = Query(..., description="Start date in ISO format (YYYY-MM-DD)"),
-    date_to: str = Query(..., description="End date in ISO format (YYYY-MM-DD)"),
-    event_type_id: Optional[int] = Query(None, description="Event Type ID"),
-    headers: Dict[str, str] = Depends(get_cal_headers)
+    availability_id: str,
+    params: Dict = Depends(get_cal_api_params)
 ):
     """
-    Get availability for a date range
+    Get a specific availability by ID
     """
-    url = f"{CAL_API_AVAILABILITY_URL}"
-    params = {
-        "dateFrom": date_from,
-        "dateTo": date_to
-    }
-    if event_type_id:
-        params["eventTypeId"] = event_type_id
-        
+    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
     try:
-        response = requests.get(url, params=params, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
     except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
 
-@app.get("/slots", response_model=APIResponse)
-async def get_slots(
-    event_type_id: int = Query(..., description="Event Type ID"),
-    start_time: str = Query(..., description="Start time in ISO format"),
-    end_time: str = Query(..., description="End time in ISO format"),
-    headers: Dict[str, str] = Depends(get_cal_headers)
+@availabilities_router.patch("/availabilities/{availability_id}", response_model=APIResponse)
+async def update_availability(
+    availability_id: str,
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
 ):
     """
-    Get available slots for a specific event type and time range
+    Update an availability
+    """
+    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
+    try:
+        response = requests.patch(
+            url,
+            json=payload,
+            params=params,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@availabilities_router.delete("/availabilities/{availability_id}", response_model=APIResponse)
+async def delete_availability(
+    availability_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Delete an availability by ID
+    """
+    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    
+@bookings_router.post("/bookings", response_model=APIResponse)
+async def create_booking(
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Create a new booking
+    """
+    try:
+        response = requests.post(
+            CAL_API_BOOKINGS_URL,
+            json=payload,
+            params=params,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@bookings_router.get("/bookings/{booking_id}", response_model=APIResponse)
+async def get_booking(
+    booking_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get a specific booking by ID
+    """
+    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@bookings_router.patch("/bookings/{booking_id}", response_model=APIResponse)
+async def update_booking(
+    booking_id: str,
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Update a booking
+    """
+    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
+    try:
+        response = requests.patch(
+            url,
+            json=payload,
+            params=params,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@bookings_router.delete("/bookings/{booking_id}/cancel", response_model=APIResponse)
+async def cancel_booking(
+    booking_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Cancel a booking by ID
+    """
+    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}/cancel"
+    try:
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+
+@bookings_router.get("/slots", response_model=APIResponse)
+async def get_slots(
+    start_time: str = Query(..., description="Start time (ISO format, required)"),
+    end_time: str = Query(..., description="End time (ISO format, required)"),
+    event_type_id: Optional[int] = Query(None, description="Event Type ID"),
+    time_zone: Optional[str] = Query(None, description="Time zone"),
+    username_list: Optional[List[str]] = Query(None, description="List of usernames"),
+    event_type_slug: Optional[str] = Query(None, description="Event type slug"),
+    org_slug: Optional[str] = Query(None, description="Organization slug"),
+    is_team_event: Optional[bool] = Query(None, description="Is team event"),
+    params: Dict[str, Any] = Depends(get_cal_api_params),
+):
+    """
+    Get available bookable slots from Cal.com
     """
     url = CAL_API_SLOTS_URL
-    params = {
-        "eventTypeId": event_type_id,
+
+    # Build query parameters
+    query_params = params.copy()
+    query_params.update({
         "startTime": start_time,
-        "endTime": end_time
-    }
-        
-    try:
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
+        "endTime": end_time,
+    })
+    if event_type_id is not None:
+        query_params["eventTypeId"] = event_type_id
+    if time_zone is not None:
+        query_params["timeZone"] = time_zone
+    if username_list is not None:
+        query_params["usernameList"] = username_list
+    if event_type_slug is not None:
+        query_params["eventTypeSlug"] = event_type_slug
+    if org_slug is not None:
+        query_params["orgSlug"] = org_slug
+    if is_team_event is not None:
+        query_params["isTeamEvent"] = is_team_event
 
-@app.post("/reservations", response_model=APIResponse)
-async def create_reservation(
-    reservation_data: ReservationRequest = Body(...),
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Reserve a slot
-    """
-    url = CAL_API_RESERVATIONS_URL
     try:
-        response = requests.post(url, json=reservation_data.dict(exclude_none=True), headers=headers)
+        response = requests.get(url, params=query_params)
         response.raise_for_status()
-        return response.json()
+        api_response = response.json() if response.content else {}
+        return APIResponse(status="success", data=api_response, error={})
     except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
+        raise HTTPException(
+            status_code=response.status_code if hasattr(response, 'status_code') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
 
-@app.get("/reservations/{reservation_uid}", response_model=APIResponse)
-async def get_reservation(
-    reservation_uid: str,
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Get a specific reservation by UID
-    """
-    url = f"{CAL_API_RESERVATIONS_URL}/{reservation_uid}"
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
-    
-@app.delete("/reservations/{reservation_uid}", response_model=APIResponse)
-async def delete_reservation(
-    reservation_uid: str,
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Delete a reservation by UID
-    """
-    url = f"{CAL_API_RESERVATIONS_URL}/{reservation_uid}"
-    try:
-        response = requests.delete(url, headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
 
-@app.patch("/reservations/{reservation_uid}", response_model=APIResponse)
-async def update_reservation(
-    reservation_uid: str,
-    update_data: ReservationRequest = Body(...),
-    headers: Dict[str, str] = Depends(get_cal_headers)
-):
-    """
-    Update an existing reservation
-    """
-    url = f"{CAL_API_RESERVATIONS_URL}/{reservation_uid}"
-    try:
-        response = requests.patch(url, json=update_data.dict(exclude_none=True), headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        raise HTTPException(status_code=response.status_code if hasattr(response, 'status_code') else 500,
-                            detail=f"Cal.com API error: {str(e)}")
+app.include_router(user_router, prefix="/user", tags=["User"])
+app.include_router(availabilities_router, prefix="/availabilities", tags=["Availability"])
+app.include_router(attendees_router, prefix="/attendees", tags=["Attendee"])
+app.include_router(bookings_router, prefix="/bookings", tags=["Booking"])
+
 
 # Run with: uvicorn main:app --reload
 if __name__ == "__main__":
