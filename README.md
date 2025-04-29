@@ -1,328 +1,310 @@
-# chatbook
-
-## Product Requirements Document (PRD): HealthConnect (Phase 1 - Integrated Form for Apollo Health)
-
-**Version:** 1.2 (Apollo Health Integration, Phase 1 Focus)
-**Author:** Kshitij
-**Status:** Draft 
+**Product Requirements Document: Chatbook**
 
 **1. Introduction**
 
-*   **1.1. Purpose:** This document outlines the product requirements for **Phase 1** of HealthConnect, a feature integrated within the existing **Apollo Health** customer application (web/mobile). This phase focuses on implementing a **form-based interface** for scheduling medical appointments using mock doctor/availability data. It aims to streamline the booking process for Apollo Health users by leveraging existing user information where available and providing a clear, structured way to book appointments, including for dependents or others.
-*   **1.2. Project Vision:** To provide Apollo Health users with a seamless, integrated, and efficient way to schedule medical appointments directly within their existing trusted application environment, starting with a robust form-based system and establishing a foundation for future enhancements like conversational AI powered by Azure OpenAI.
-*   **1.3. Problem Statement:** Scheduling appointments through various channels can be disjointed. Apollo Health users may benefit from a dedicated, in-app feature that simplifies booking by pre-filling known data and offering a clear workflow, especially when managing appointments for family members. This phase addresses that need with a structured form.
+*   **1.1. Purpose:** This document outlines the product requirements for Chatbook, a conversational AI feature integrated within the existing **ABC Hospital Network** customer application (web/mobile). Chatbook enables users to schedule medical appointments through a natural language chat interface, interacting with the underlying Cal.com booking system via API wrappers.
+*   **1.2. Project Vision:** To provide ABC Hospital Network users with a seamless, intuitive, and efficient way to schedule medical appointments directly within their trusted application environment using a conversational AI assistant.
+*   **1.3. Problem Statement:** Traditional appointment scheduling often involves navigating complex forms or making phone calls. Users of the ABC Hospital Network application desire a quicker, more natural way to book appointments for themselves and authorized family members, leveraging their existing logged-in context. Chatbook addresses this by providing an intelligent chat interface.
 *   **1.4. Target Audience:**
-    *   **Primary:** Existing registered users of the **Apollo Health** application seeking to book medical appointments for themselves or others (e.g., children, parents) using the app.
-*   **1.5. Scope Overview:** This PRD covers **Phase 1: Form-Based Integrated Booking**. It focuses on delivering a functional form within the Apollo Health app for booking appointments using mock data, handling pre-filled user data, allowing booking for others, and using Redis for temporary session/form state management. **Phase 2 (Conversational AI Interface using Azure OpenAI)** is planned as a future enhancement.
+    *   **Primary:** Existing registered users of the **ABC Hospital Network** application seeking to book medical appointments for themselves or authorized dependents/family members via chat.
+*   **1.5. Scope Overview:** This PRD covers the implementation of the Chatbook conversational booking feature. It focuses on delivering a functional chat interface powered by Langchain/LangGraph and an LLM (e.g., OpenAI via Langchain), handling intent recognition, natural language understanding for extracting booking details, simplified patient selection using pre-authorized family members, interacting with wrapped Cal.com APIs for availability/booking, using Redis for session state management, and integrating Langfuse for observability.
 
-**2. Goals & Objectives (Phase 1)**
+**2. Goals & Objectives**
 
 *   **2.1. Product Goals:**
-    *   Successfully integrate a user-friendly appointment booking form into the existing Apollo Health application.
-    *   Reduce user effort by pre-filling known user information where appropriate.
-    *   Provide a clear and intuitive workflow for users booking appointments for themselves or others.
-    *   Establish a reliable backend mechanism (using Redis for session state) to manage the booking process temporarily.
-    *   Create a foundation for future scheduling enhancements (Phase 2).
-*   **2.2. Business Objectives (Phase 1):**
-    *   Launch the form-based booking feature within the Apollo Health app.
-    *   Improve user satisfaction with the in-app appointment scheduling process.
-    *   Validate the usability and workflow of the integrated form with user testing.
-    *   Ensure seamless data flow (contextual user info) from the main Apollo Health app to the HealthConnect feature.
-*   **2.3. Success Metrics (Phase 1):**
-    *   **Task Completion Rate:** >95% of users successfully complete the booking form (up to confirmation stage) in usability tests.
-    *   **Form Completion Time:** Average time from initiating booking to reaching the confirmation screen (Target: < 2 minutes for users booking for self with pre-filled data).
-    *   **Error Rate:** < 3% of form submissions result in validation errors requiring significant correction.
-    *   **User Satisfaction (Qualitative):** Positive feedback during usability testing regarding ease of use, clarity of the "booking for others" option, and appreciation for pre-filled data. Measured via surveys or direct feedback.
-    *   **Feature Adoption Rate:** Percentage of active Apollo Health users utilizing the new booking feature within the first 3 months post-launch (requires analytics hooks).
+    *   Successfully integrate a user-friendly conversational appointment booking feature (Chatbook) into the ABC Hospital Network application.
+    *   Enable users to book appointments using natural language interactions.
+    *   Accurately recognize user intent to book an appointment.
+    *   Effectively extract required booking information (patient, reason, preferences, time) from the conversation.
+    *   Streamline patient selection by offering pre-populated options for the user and known family members.
+    *   Provide clear conversational feedback, present available slots effectively, and confirm bookings within the chat interface.
+    *   Establish robust backend conversational logic using LangGraph and manage chat state using Redis.
+    *   Implement comprehensive observability using Langfuse to monitor and improve the conversational flow and LLM interactions.
+*   **2.2. Business Objectives:**
+    *   Launch the Chatbook feature within the ABC Hospital Network app.
+    *   Improve user satisfaction and engagement with the in-app appointment scheduling process.
+    *   Reduce friction in the booking process, potentially leading to faster scheduling.
+    *   Validate the effectiveness and usability of the conversational interface through user feedback and analytics (via Langfuse).
+    *   Ensure secure and reliable interaction with underlying booking systems (Cal.com via wrapper).
+*   **2.3. Success Metrics:**
+    *   **Intent Recognition Accuracy:** >95% accuracy in identifying user intent to book an appointment (measured via Semantic Router/classifier logs and Langfuse traces).
+    *   **Task Completion Rate (Chat):** >85% of users who initiate a booking conversation successfully reach a confirmed booking or a clear "no slots available" state without needing to abandon the chat due to confusion or errors.
+    *   **Conversation Quality Score (via Langfuse/Manual Review):** High scores based on factors like turn efficiency, sentiment analysis, and error recovery during interactions.
+    *   **Slot Selection Success:** >90% of presented available slots lead to a successful selection or clear user decision (e.g., "None of those work").
+    *   **Booking Success Rate (via API):** High success rate for `POST /bookings` calls triggered from the chat flow (excluding deliberate user cancellations or simulated conflicts).
+    *   **User Satisfaction (Qualitative):** Positive feedback via in-app surveys or reviews regarding the ease of use, naturalness, and efficiency of the Chatbook feature.
 
-**3. User Stories & Interaction Workflows (Phase 1 - Form Based)**
+**3. Intent Recognition & Initiation**
 
-*   **3.1. Expanded User Stories:**
-    *   **US1.1 (Initiation & Context):** As a logged-in Apollo Health app user, when I click the "Book Appointment" button/link (located in [Specify Location, e.g., main dashboard, navigation menu]), I want the system to securely receive my User ID and preferably my Name and Date of Birth, so the booking feature starts with my context.
-        *   *AC:* Feature initializes upon entry; User context (UserID required, Name/DOB preferred) is received from the host app; A unique session is created/retrieved linked to the UserID.
-    *   **US1.2 (Patient Selection):** As a user starting the booking, I want to be immediately presented with a clear, mandatory choice: "Who is this appointment for?" with options like "Myself" and "Someone Else" (e.g., Child, Parent, Other), so I can direct the workflow correctly from the start.
-        *   *AC:* Radio buttons or equivalent prominent control displayed; Selection is mandatory to proceed; Default selection might be "Myself".
-    *   **US1.3 (Booking for Self - Pre-fill):** As a user who selected "Myself", I want my Name and Date of Birth to be visibly pre-filled in the patient information section of the form, using the data from my Apollo Health profile, so I only need to verify it.
-        *   *AC:* Patient Name and DOB fields are populated and potentially marked as read-only or clearly indicated as pre-filled; An "Edit" option might exist if profiles can be outdated.
-    *   **US1.4 (Booking for Other - Blank Fields):** As a user who selected "Someone Else", I want the Patient Name and Date of Birth fields to be blank and clearly marked as required, so I can accurately enter the details of the person I'm booking for.
-        *   *AC:* Patient Name and DOB input fields are empty; Labels clearly indicate they are required; Input validation is active for these fields.
-    *   **US1.5 (Booking for Other - Relationship):** As a user booking for "Someone Else", I want a field (e.g., dropdown) to specify my relationship to the patient (e.g., Child, Parent, Spouse, Guardian, Other specified), so the clinic has context (optional but helpful).
-        *   *AC:* A "Relationship to Patient" dropdown/input field is present *only* if "Someone Else" is selected; Field is optional unless "Other" requires specification; Selected value stored in session.
-    *   **US1.6 (Reason for Appointment):** As a user, regardless of who the appointment is for, I need to provide a brief "Reason for Appointment" in a dedicated text field/area, so the clinical staff can prepare accordingly.
-        *   *AC:* A required text input/textarea field is present; Input is validated for non-empty value; Value stored in session.
-    *   **US1.7 (Appointment Preferences):** As a user, I want to use intuitive form controls (like dropdowns or searchable inputs) to select my preferred Location, required Specialty, and optionally a specific Doctor (from a list filtered by Location/Specialty), based on available mock options, so the system can find relevant slots.
-        *   *AC:* Dropdowns/inputs provided for Location, Specialty (required), Doctor (optional, perhaps with an "Any Available" option); Selecting Specialty/Location dynamically filters the Doctor list; Selections stored in session.
-    *   **US1.8 (Viewing Availability):** As a user, after selecting my preferences, I want to see the available mock appointment slots clearly displayed, potentially grouped by date or in a simple calendar view, with loading indicators shown while fetching, so I can easily find a suitable time.
-        *   *AC:* Call to `GET /api/doctor-availability` triggered upon completing preference fields; Loading indicator shown; Results displayed in a user-friendly format (e.g., list: "Mon, Nov 6: 9:00 AM, 9:30 AM...") ; Clear message shown if no slots match criteria ("No available slots found. Please adjust your preferences or try different dates.").
-    *   **US1.9 (Selecting a Slot):** As a user viewing the available slots, I want to be able to click on a specific time slot to select it, see clear visual confirmation of my selection (e.g., highlighting), and have the option to easily de-select it or choose a different one.
-        *   *AC:* Time slots are interactive elements (buttons/links); Clicking selects a slot and updates temporary state; Selected slot is visually distinct; Clicking again or clicking another slot updates the selection.
-    *   **US1.10 (Reviewing Summary):** As a user, before finalizing, I want a dedicated summary screen or section that clearly lists *all* key details: Who the appointment is for, Patient Name & DOB, Reason, Selected Location, Specialty, Doctor (if chosen), and the selected Date & Time, so I can perform a final check for accuracy. I also want an easy way to go back and edit information if needed.
-        *   *AC:* Summary view displays all relevant `BookingData` fields; Data is read-only in this view; Clear "Edit" links/buttons associated with sections allow navigation back to the relevant form part.
-    *   **US1.11 (Confirming Booking):** As a user viewing the correct summary, I want to click a clearly labeled "Confirm Booking" button to submit my request for the mock appointment.
-        *   *AC:* A prominent "Confirm Booking" button exists on the summary view; Button is enabled only when a slot is selected and required fields are valid; Clicking triggers `POST /api/book-appointment`.
-    *   **US1.12 (Confirmation Message):** As a user, immediately after successfully confirming, I want to see a clear confirmation message on the screen, including the mock appointment details (Patient, Doctor, Date/Time, Location) and a unique (mock) Confirmation ID, so I have assurance the booking was processed.
-        *   *AC:* Success view/message replaces the form/summary; Displays key appointment details and `appointmentId` received from the API; May include next steps or links back to the main Apollo Health app.
-    *   **US1.13 (Input Validation):** As a user interacting with the form, if I miss a required field or enter data in an invalid format (e.g., incorrect DOB format), I want immediate, inline validation feedback near the field upon losing focus or attempting to proceed, so I can correct errors easily without submitting the entire form.
-        *   *AC:* Validation rules applied per field (required, date format, etc.); Error messages displayed clearly near the corresponding field; Proceed/Submit button might be disabled until core requirements are met.
-    *   **US1.14 (Session Restoration):** As a user filling out the multi-step form, if I get interrupted (e.g., close tab, app crashes briefly) and return to the booking feature within a reasonable time (e.g., 1 hour), I want the form to automatically repopulate with the data I had already entered, so I can seamlessly continue where I left off.
-        *   *AC:* Form state periodically saved to Redis session via API; Upon re-entry within TTL, `GET /api/session` retrieves last saved state; Form fields are repopulated automatically.
-    *   **US1.15 (Integration Definition):** As a developer on the Apollo Health app team, I need a clear specification of how to securely pass the logged-in user's context (UserID, Name, DOB) to the HealthConnect backend when initiating the booking feature.
-        *   *AC:* Technical documentation defines the API contract (e.g., expected headers like `Authorization: Bearer <token>`, required claims in the token, or initial POST body).
-    *   **US1.16 (Dynamic Slot Refresh):** As a user, if I have selected preferences and viewed available slots, but then change a preference (e.g., switch to a different Location), I want the list of available slots to automatically update to reflect the new criteria without needing to manually trigger a refresh.
-        *   *AC:* Changing Location, Specialty, or Doctor preference fields triggers a new call to `GET /api/doctor-availability`; Slot display updates dynamically with new results (or 'no slots' message).
-    *   **US1.17 (Slot Conflict Handling):** As a user about to confirm my booking, if the specific time slot I selected was taken moments before my confirmation (simulated backend conflict), I want the system to prevent the booking and display a specific, user-friendly message on the summary screen (e.g., "Sorry, the selected time slot at [Time] on [Date] just became unavailable. Please go back and select a different time.") rather than showing a generic error.
-        *   *AC:* `POST /api/book-appointment` returns a specific error code (e.g., 409 Conflict) if slot is unavailable; Frontend maps this code to a user-friendly message; User is guided back to the slot selection step.
-    *   **US1.18 (Exiting the Feature):** As a user, after successfully booking an appointment or deciding to abandon the process, I want clear options (e.g., "Done", "Back to Dashboard" button, standard app navigation) to easily return to the main area of the Apollo Health application.
-        *   *AC:* Clear exit path provided on confirmation screen; Cancel/Back options available throughout the flow integrate with Apollo App navigation patterns.
+*   **3.1. Requirement:** Before initiating the detailed booking workflow (LangGraph), the system must reliably detect the user's intent to schedule an appointment based on their initial chat message(s).
+*   **3.2. Implementation:**
+    *   Utilize a **Semantic Router** (e.g., from Langchain or a similar library) or a dedicated intent classification model/prompt.
+    *   Train/configure the router to distinguish "book appointment" intent from other potential user queries (e.g., asking for hospital information, checking existing appointments, general chat).
+    *   **Input:** User's chat message.
+    *   **Output:** Classification (e.g., "BOOK_APPOINTMENT", "GENERAL_QUERY", "UNKNOWN") and potentially extracted initial entities (like specialty or reason if mentioned upfront).
+    *   **Action:** If "BOOK_APPOINTMENT" intent is detected with high confidence, initiate the Chatbook LangGraph booking flow. Otherwise, respond appropriately (e.g., handle general query, ask for clarification).
+    *   **Observability:** Log intent classification results and confidence scores to **Langfuse** for monitoring and fine-tuning.
 
-*   **3.2. User Interaction Workflows:**
+**4. User Stories & Interaction Workflows (Chat-Based)**
+
+*   **4.1. Expanded User Stories:**
+    *   **US1 (Initiation & Intent):** As a logged-in ABC Hospital Network app user, when I type a message like "I need to book an appointment" or "Schedule a check-up for my daughter," I want the system to recognize my intent to book and start the Chatbook scheduling conversation, using my logged-in context (User ID, associated family members).
+        *   *AC:* Semantic Router/Intent Classifier identifies booking intent; LangGraph `start_node` is triggered; User context (UserID, pre-authorized family member list) is loaded (potentially from Redis session or initial API call); Langfuse trace initiated for the session.
+    *   **US2 (Patient Selection - Simplified):** As a user starting the booking chat, when asked "Who is this appointment for?", I want the chatbot to present options including "Myself" and the names of my pre-authorized family members (e.g., "Jane Doe (Child)", "John Doe Sr. (Parent)"), so I can easily select the patient without typing their full details.
+        *   *AC:* Chatbot presents interactive options (buttons/list); Options include "Myself" and known dependents fetched based on UserID; User selects one option; Selection stored in LangGraph state (`BookingState`); Patient Name/DOB (if known for selected person) are populated in the state. Langfuse logs the selection step.
+    *   **US3 (Patient Details Confirmation/Collection):** As a user, if I select a family member whose details (like DOB) are not fully known or need confirmation, I want the chatbot to politely ask for the necessary information (e.g., "Could you please confirm Jane's date of birth?"), so the booking can proceed accurately.
+        *   *AC:* Chatbot checks `BookingState` for missing required patient info (Name, DOB); If missing, asks clarifying question; Extracts information from user response using LLM/Pydantic; Updates `BookingState`; Validates data format (e.g., DOB) using Pydantic. Langfuse logs the collection/confirmation step.
+    *   **US4 (Reason for Appointment):** As a user, when the chatbot asks "What's the main reason for this appointment?", I want to state the reason in my own words (e.g., "annual physical," "sore throat," "follow-up for my knee"), so the bot can capture this context.
+        *   *AC:* Chatbot prompts for reason; Extracts reason from user's natural language response; Stores extracted reason in `BookingState`. Langfuse logs the LLM interaction.
+    *   **US5 (Appointment Preferences - Conversational):** As a user, I want the chatbot to guide me through providing preferences like Location (e.g., "Which hospital or clinic location works best?"), Specialty (e.g., "What specialty do you need? Like Cardiology or Dermatology?"), and optionally a specific Doctor (e.g., "Do you have a preferred doctor, or is any available doctor okay?"), so the system can find relevant slots.
+        *   *AC:* Chatbot asks for preferences sequentially or based on conversation flow; Extracts Location, Specialty, Doctor preference using NLU; Handles potential ambiguity (e.g., "Near downtown" -> maps to specific clinics); Stores preferences in `BookingState`; Uses Pydantic models (like `UserUpdateRequest` fields) for validation. Langfuse logs each preference extraction step.
+    *   **US6 (Fetching & Presenting Availability):** As a user, after providing my preferences, I want the chatbot to inform me it's looking for slots (e.g., "Okay, let me check availability for a Dermatologist at Main Campus...") and then present the available mock appointment slots clearly within the chat (e.g., "I found these times for next Tuesday, May 28th: 9:00 AM, 9:30 AM, 10:15 AM. Do any of these work?"), so I can easily choose one.
+        *   *AC:* LangGraph node calls the backend API (`GET /bookings/slots` via `main.py` wrapper) with parameters from `BookingState`; Chatbot shows a brief "checking" message; Presents returned slots conversationally (grouped by date, clearly listed times); Handles "no slots found" gracefully (e.g., "Sorry, I couldn't find any open slots with those preferences. Would you like to try a different location or date?"). Langfuse logs the API call and the presented slots.
+    *   **US7 (Selecting a Slot - Conversational):** As a user viewing the presented slots in the chat, I want to be able to select one by simply stating it (e.g., "9:30 AM looks good," "The first one," "Tuesday at 10:15"), so the bot confirms my choice.
+        *   *AC:* Chatbot uses NLU to understand the user's selection from the presented options; Confirms the chosen slot back to the user (e.g., "Great, I'll select Tuesday, May 28th at 9:30 AM for you."); Updates `BookingState` with the `selected_slot` (using the precise timestamp format required by the API). Langfuse logs the selection and confirmation.
+    *   **US8 (Reviewing Summary - Conversational):** As a user, before finalizing, I want the chatbot to provide a concise summary of the booking details (e.g., "Okay, just to confirm: This is for Jane Doe (DOB: 2010-05-15) for a 'sore throat' with any available Dermatologist at Main Campus on Tuesday, May 28th at 9:30 AM. Is that correct?"), so I can give a final confirmation.
+        *   *AC:* LangGraph `summary_node` formats data from `BookingState`; Chatbot presents the summary clearly; Asks for confirmation ("Yes/No" or similar). Langfuse logs the summary presentation.
+    *   **US9 (Confirming Booking - Conversational):** As a user, after confirming the summary is correct (e.g., by replying "Yes" or "Looks good"), I want the chatbot to attempt the booking and inform me of the outcome.
+        *   *AC:* User confirms summary; LangGraph `confirmation_node` triggers API call (`POST /bookings` via wrapper) using data from `BookingState`; Chatbot shows processing message (e.g., "Booking that for you now..."). Langfuse logs the confirmation attempt.
+    *   **US10 (Confirmation Message - Conversational):** As a user, immediately after a successful booking attempt, I want the chatbot to provide a clear confirmation message within the chat, including key details and the mock Confirmation ID (e.g., "All set! Your appointment is confirmed for Jane Doe with Dr. Emily Carter (Dermatology) at Main Campus on Tuesday, May 28th at 9:30 AM. Your confirmation ID is BK-12345."), so I have assurance.
+        *   *AC:* API call returns success (2xx status) with booking details (including potentially assigned doctor if "any" was chosen) and `booking.id`/`uid`; Chatbot formats and presents the success message; `BookingState` updated with confirmation details; LangGraph transitions to `exit_node`. Langfuse logs the successful confirmation details.
+    *   **US11 (Handling Booking Failures - Conversational):** As a user, if the booking attempt fails (e.g., simulated slot conflict, API error), I want the chatbot to inform me clearly and suggest next steps (e.g., "Oh, it looks like that 9:30 AM slot was just taken. Would you like to see other available times?" or "There was an issue booking that appointment. Should we try again?"), so I'm not left wondering.
+        *   *AC:* API call returns an error (e.g., 409 Conflict, 500); LangGraph captures the error; Chatbot presents a user-friendly error message based on the error type; Guides user back to an appropriate step (e.g., slot selection, retry confirmation). Langfuse logs the failed booking attempt and the presented error message.
+    *   **US12 (Handling Ambiguity & Corrections):** As a user interacting with the chatbot, if the bot misunderstands me or extracts incorrect information, I want to be able to correct it easily within the conversation (e.g., "No, I meant Dr. *Smith*, not Dr. Jones," or "Actually, the appointment is for *me*."), so the bot adjusts the `BookingState` accordingly.
+        *   *AC:* NLU/LLM prompts designed to handle corrections; LangGraph includes logic to potentially loop back to previous nodes based on user feedback; `BookingState` is updated upon correction. Langfuse traces show correction loops.
+    *   **US13 (Session Management & Context):** As a user having a conversation with Chatbook, I expect the bot to remember the context of our current booking attempt within the same session (e.g., who the patient is, the reason stated earlier), so I don't have to repeat myself constantly. If I get interrupted and return shortly after, I'd like to resume roughly where I left off.
+        *   *AC:* `BookingState` managed by LangGraph persists throughout the conversation session; State is stored/updated in Redis linked to the user's session/ID (`redis_client.py` functions used); Short TTL allows for brief interruptions and resumption. Langfuse traces link spans within the same session ID.
+    *   **US14 (Exiting Conversation):** As a user, when the booking is complete or if I decide to cancel the process, I want to be able to end the chat interaction naturally (e.g., "Thanks, that's all," "Cancel booking"), and the bot should acknowledge and end the flow gracefully.
+        *   *AC:* NLU recognizes exit/cancel intents; LangGraph transitions to `exit_node` or a specific cancellation handler; Session state in Redis might be cleared or marked as completed/cancelled; Chatbot provides a concluding message. Langfuse trace is finalized.
+
+*   **4.2. User Interaction Workflows (Conversational):**
 
     *   **Workflow 1: Booking for Self (Happy Path)**
-        1.  User logs into Apollo Health App.
-        2.  User navigates to and clicks "Book Appointment".
-        3.  HealthConnect module loads. User context (ID, Name, DOB) is passed.
-        4.  User sees "Who is this appointment for?". User selects "Myself".
-        5.  Patient Info section appears, pre-filled with User's Name and DOB. User verifies.
-        6.  User enters "Reason for Appointment".
-        7.  User selects desired Location and Specialty using dropdowns.
-        8.  (Optional) User selects a specific Doctor from the filtered list, or leaves as "Any Available".
-        9.  Loading indicator appears briefly.
-        10. Available time slots for the criteria are displayed (e.g., list grouped by date).
-        11. User clicks on a desired time slot (e.g., "10:30 AM"). The slot is highlighted.
-        12. User clicks "Next" or scrolls to the Summary section.
-        13. Summary screen shows all details: Patient=Self (Name, DOB), Reason, Location, Specialty, Doctor, selected Date & Time.
-        14. User verifies details and clicks "Confirm Booking".
-        15. Brief processing indicator.
-        16. Confirmation screen appears: "Appointment Confirmed!" with details and Mock Confirmation ID.
-        17. User clicks "Done" or navigates back to the Apollo Health dashboard.
+        1.  User (logged in): "Hi, I need to make an appointment."
+        2.  *Chatbot (Intent Recognized)*: "Okay, I can help with that! Who is this appointment for? Options: Myself, Jane Doe (Child)."
+        3.  User: "Myself"
+        4.  *Chatbot*: "Got it. And what's the reason for your visit today?"
+        5.  User: "Annual check-up"
+        6.  *Chatbot*: "Thanks. Which clinic location do you prefer?"
+        7.  User: "Main Campus"
+        8.  *Chatbot*: "And do you need a specific specialty, or is this for General Practice?"
+        9.  User: "General Practice"
+        10. *Chatbot*: "Do you have a preferred doctor, or is any available GP okay?"
+        11. User: "Any available is fine."
+        12. *Chatbot*: "Okay, let me check availability for a General Practitioner at Main Campus... Found some spots for tomorrow, May 24th: 1:00 PM, 1:30 PM, 2:15 PM. Do any of these work?"
+        13. User: "1:30 PM please"
+        14. *Chatbot*: "Great, 1:30 PM tomorrow it is. Just to confirm: Appointment for Yourself (John Smith) for an 'Annual check-up' with any available GP at Main Campus tomorrow, May 24th at 1:30 PM. Correct?"
+        15. User: "Yes"
+        16. *Chatbot*: "Booking that for you now... All set! Your appointment is confirmed with Dr. Davis (GP) at Main Campus tomorrow, May 24th at 1:30 PM. Confirmation ID: BK-67890. Anything else?"
+        17. User: "No, thanks!"
+        18. *Chatbot*: "You're welcome! Have a great day." (Session ends)
 
-    *   **Workflow 2: Booking for Someone Else (Happy Path)**
-        1.  User logs into Apollo Health App.
-        2.  User navigates to and clicks "Book Appointment".
-        3.  HealthConnect module loads. User context (ID) is passed.
-        4.  User sees "Who is this appointment for?". User selects "Someone Else".
-        5.  Patient Info section appears with *blank*, required fields for Name and DOB.
-        6.  User enters the Patient's Name and Date of Birth.
-        7.  (Optional) User selects Relationship ("Child").
-        8.  User enters "Reason for Appointment".
-        9.  User selects desired Location and Specialty.
-        10. (Optional) User selects a specific Doctor.
-        11. Available time slots are displayed.
-        12. User clicks on a desired time slot.
-        13. User proceeds to Summary screen.
-        14. Summary screen shows all details: Patient=Someone Else (Entered Name, DOB, Relationship), Reason, Location, Specialty, Doctor, selected Date & Time.
-        15. User verifies details and clicks "Confirm Booking".
-        16. Confirmation screen appears with details and Mock Confirmation ID.
-        17. User clicks "Done" or navigates back.
+    *   **Workflow 2: Booking for Child (Known Info)**
+        1.  User: "Book appointment for Jane"
+        2.  *Chatbot*: "Sure. To confirm, is this for Jane Doe (Child)? Options: Myself, Jane Doe (Child)."
+        3.  User: "Yes, Jane Doe"
+        4.  *Chatbot*: "Okay, booking for Jane Doe. What's the reason for the appointment?"
+        5.  User: "She has a cough"
+        6.  *Chatbot*: "Okay. Which location and specialty?"
+        7.  User: "Pediatrics at the West Clinic"
+        8.  *Chatbot*: "Checking for Pediatricians at West Clinic... Found openings with Dr. Lee on Monday at 10:00 AM and 11:30 AM. Which time is better?"
+        9.  User: "10 AM"
+        10. *Chatbot*: "Got it. Confirming: Appointment for Jane Doe (Child) for 'cough' with Dr. Lee (Pediatrics) at West Clinic on Monday, May 27th at 10:00 AM. Is this correct?"
+        11. User: "Correct"
+        12. *Chatbot*: "Booking... Confirmed! Appointment ID: BK-11223. Anything else I can help with?"
+        13. User: "Nope"
 
-    *   **Workflow 3: Handling "No Availability"**
-        1.  User enters preferences (Location, Specialty, Doctor).
-        2.  Slot display area shows a message: "No available slots match your criteria. Please try adjusting location, doctor, specialty, or desired date range (if applicable)."
-        3.  User changes Location preference to a different clinic.
-        4.  Slot display automatically refreshes (shows loading indicator).
-        5.  New available slots for the updated criteria are displayed.
-        6.  User proceeds to select a slot.
+    *   **Workflow 3: Handling Slot Conflict**
+        1.  ... (User selects "3:00 PM") ...
+        2.  *Chatbot*: "Okay, 3:00 PM. Just to confirm: [Summary details]... Correct?"
+        3.  User: "Yes"
+        4.  *Chatbot*: "Booking that now... Oh, it looks like that 3:00 PM slot was just taken while we were chatting. Sorry about that! The next available times are 3:45 PM or 4:15 PM. Would either of those work instead?"
+        5.  User: "Let's do 3:45 PM"
+        6.  *Chatbot*: "Okay, selecting 3:45 PM... Confirming: [Updated Summary]... Correct?"
+        7.  User: "Yes"
+        8.  *Chatbot*: "Booking... All set! [Confirmation details for 3:45 PM]"
 
-    *   **Workflow 4: Handling Validation Errors**
-        1.  User is booking for "Someone Else".
-        2.  User fills in Name but forgets to enter Date of Birth.
-        3.  User tries to click "Next" or move to the next section.
-        4.  The Date of Birth field is highlighted (e.g., red border) and an inline message appears: "Date of Birth is required."
-        5.  User enters the Date of Birth. The error message disappears.
-        6.  User proceeds.
+    *   **Workflow 4: Handling Ambiguity/Correction**
+        1.  *Chatbot*: "Which specialty do you need?"
+        2.  User: "Heart doctor"
+        3.  *Chatbot*: "Okay, Cardiology. And which location?"
+        4.  User: "Main Campus"
+        5.  *Chatbot*: "Checking for Cardiology at Main Campus... Available slots..."
+        6.  User: "Wait, I meant *Neurology*, not Cardiology."
+        7.  *Chatbot*: "My mistake, thanks for clarifying! Let me check for *Neurology* at Main Campus instead... Found openings..." (Process continues with corrected specialty)
 
-    *   **Workflow 5: Session Restore**
-        1.  User starts booking for self, enters Reason, selects Preferences.
-        2.  User views available slots but gets interrupted and closes the Apollo Health app/browser tab. (Form state was saved to Redis session in the background).
-        3.  User reopens the Apollo Health app within 1 hour and navigates back to "Book Appointment".
-        4.  The system recognizes the active session for the user ID.
-        5.  The booking form loads, automatically repopulated with the previously selected "Self", pre-filled Name/DOB, entered Reason, and selected Preferences. The available slots section might need reloading or show the previously fetched slots.
-        6.  User continues the process from selecting a time slot.
+**5. Functional Requirements (Chat-Based)**
 
-    *   **Workflow 6: Slot Conflict on Confirmation**
-        1.  User has selected a slot ("11:00 AM") and reviewed the summary.
-        2.  User clicks "Confirm Booking".
-        3.  The backend API (`POST /api/book-appointment`) checks the mock availability and finds the 11:00 AM slot is now marked `isAvailable: false` (simulated conflict).
-        4.  The API returns a 409 Conflict error.
-        5.  The frontend displays a message on the summary screen: "Sorry, the selected time slot (11:00 AM on [Date]) is no longer available. Please select a different time."
-        6.  The "Confirm Booking" button might be disabled. A "Choose a Different Time" button/link appears.
-        7.  User clicks the link and is taken back to the slot selection view with updated availability.
+*   **FR1. Chat Interface:**
+    *   FR1.1: Provide a chat UI within the ABC Hospital Network app for users to interact with Chatbook.
+    *   FR1.2: Handle user input (text) and display chatbot responses (text, potentially interactive elements like buttons for options).
+*   **FR2. Intent Recognition & Routing:**
+    *   FR2.1: Implement Semantic Router/Intent Classifier to detect "book appointment" intent (See Section 3).
+    *   FR2.2: Route recognized booking intents to the LangGraph booking flow. Handle other intents appropriately.
+*   **FR3. Conversational Flow (LangGraph):**
+    *   FR3.1: Implement LangGraph state machine (`BookingState`) to manage the booking conversation logic (nodes for patient selection, reason, preferences, availability check, slot selection, summary, confirmation, exit).
+    *   FR3.2: Nodes utilize LLM calls (via Langchain `ChatOpenAI` or similar) for NLU, entity extraction, and response generation.
+    *   FR3.3: Implement logic for simplified patient selection using pre-fetched authorized family members.
+    *   FR3.4: Nodes interact with backend API wrappers (`main.py`) to fetch availability (`GET /bookings/slots`) and submit bookings (`POST /bookings`).
+    *   FR3.5: Handle conversational error recovery (misunderstandings, API errors, booking conflicts).
+*   **FR4. Natural Language Understanding (NLU):**
+    *   FR4.1: Extract key entities from user messages: Patient details (if needed), Reason, Location, Specialty, Doctor Preference, Time Slot Selection, Confirmation (Yes/No), Corrections.
+    *   FR4.2: Use Pydantic models for structuring and validating extracted data before using it in API calls or state updates.
+*   **FR5. Backend API Interaction:**
+    *   FR5.1: LangGraph nodes make secure calls to the FastAPI wrapper endpoints defined in `main.py` (e.g., `GET /bookings/slots`, `POST /bookings`, potentially `GET /users/{user_id}` to fetch initial context/family).
+    *   FR5.2: Handle API responses (success, errors like 404, 409, 500) within the LangGraph flow and translate them into appropriate conversational responses.
+*   **FR6. Session Management & State:**
+    *   FR6.1: Utilize Redis (`redis_client.py`) to store and retrieve chat session state, including the current `BookingState` managed by LangGraph, linked to the ABC User ID.
+    *   FR6.2: Implement session loading at the start (`start_node`) and saving/updating state throughout the conversation (potentially in `exit_node` or after significant steps).
+    *   FR6.3: Set appropriate Redis TTL for session persistence (e.g., 1 hour).
+*   **FR7. Observability (Langfuse):**
+    *   FR7.1: Integrate Langfuse tracing into the LangGraph nodes.
+    *   FR7.2: Create traces per chat session, linked to the ABC User ID.
+    *   FR7.3: Create spans for key steps: intent recognition, each LangGraph node execution, LLM calls (with prompts/responses), API calls (with request/response data), state changes, errors.
+    *   FR7.4: Tag traces/spans appropriately (e.g., `chatbook`, `booking`, `patient_selection`, `llm_call`, `api_call`).
+*   **FR8. Integration with ABC Hospital Network App:**
+    *   FR8.1: Securely receive ABC user context (UserID, Name, DOB, Family Member List) upon chat initiation.
+    *   FR8.2: Protect backend Chatbook APIs using ABC's authentication/authorization.
+    *   FR8.3: Ensure Chat UI styling aligns with ABC app guidelines.
 
-**4. Functional Requirements (Phase 1)**
+**6. Non-Functional Requirements (NFRs)**
 
-*   **4.1. User Interface (Form-Based):**
-    *   **FR1.1:** Implement UI within Apollo Health app framework.
-    *   **FR1.2:** Implement Patient Identification (Self/Other) choice. Handle pre-fill for Self, require input for Other. Include optional Relationship field.
-    *   **FR1.3:** Required fields: Patient Name, DOB (if Other), Reason.
-    *   **FR1.4:** Preference fields: Location, Specialty (req), Doctor (opt). Implement dynamic filtering.
-    *   **FR1.5:** Availability Display: Fetch via API, show loading state, display slots clearly, handle "no slots" message. Implement dynamic refresh on preference change (US1.16).
-    *   **FR1.6:** Slot Selection: Interactive slots, clear visual indication of selection, allow de-selection.
-    *   **FR1.7:** Summary View: Display all key data, provide "Edit" links.
-    *   **FR1.8:** Booking Confirmation View: Display success message, mock details, mock ID. Include clear exit navigation (US1.18).
-    *   **FR1.9:** Input Validation: Implement client/server-side validation. Inline error messages (US1.13).
-*   **4.2. Appointment Management (Mock Data):**
-    *   **FR2.1:** Implement `GET /api/doctor-availability` (mock data).
-    *   **FR2.2:** Implement `POST /api/book-appointment` (mock data). Include logic to *simulate* slot conflict possibility and return 409 error code if triggered (US1.17).
-    *   **FR2.3:** Define mock Doctor/TimeSlot data.
-*   **4.3. Session Management & State:**
-    *   **FR3.1:** Implement `GET /api/session` to handle Apollo user context, create/retrieve Redis session linked to Apollo User ID. Enable session restore (US1.14).
-    *   **FR3.2:** Implement API (`POST /api/update-booking-form`) for incremental form state saving to Redis.
-    *   **FR3.3:** Use Upstash Redis securely.
-    *   **FR3.4:** Use Redis keys like `session:apollo:<apolloUserId>`.
-    *   **FR3.5:** Set session TTL (e.g., 1 hour inactivity).
-    *   **FR3.6:** Handle Redis errors gracefully.
-*   **4.4. Integration with Apollo Health App:**
-    *   **FR4.1:** Implement defined mechanism for receiving Apollo user context securely (US1.15).
-    *   **FR4.2:** Protect API endpoints using Apollo Health's authentication/authorization system.
-    *   **FR4.3:** Ensure UI styling aligns with Apollo Health app guidelines.
-    *   **FR4.4:** Implement clear entry and exit navigation points integrating with the Apollo Health app structure (US1.1, US1.18).
-*   **4.5. PWA Capabilities (Compatibility):**
-    *   **FR5.1:** Ensure the integrated feature works correctly within the Apollo Health app if it's a PWA or web app. Avoid breaking existing service workers or manifest configurations.
+*   **6.1. Performance:**
+    *   Chatbot response time (p95): < 3 seconds for simple turns, < 5-7 seconds for turns involving API calls or complex LLM generation.
+    *   API call latency (FastAPI wrapper to Cal.com, p95): < 500ms.
+    *   NLU/Entity Extraction Latency (LLM component): Acceptable latency as per chosen model and user experience goals.
+*   **6.2. Security:**
+    *   HTTPS for all communications.
+    *   Secure handling of ABC user context.
+    *   API endpoints protected by ABC auth.
+    *   Input sanitization/validation before processing by LLM or APIs.
+    *   Secure connection to Redis.
+    *   Secure handling of API keys (Cal.com, LLM provider, Langfuse) via environment variables/secrets management (`.env`).
+*   **6.3. Reliability:**
+    *   Graceful handling of LLM errors, API errors, Redis unavailability.
+    *   High availability for the Chatbook service.
+    *   LangGraph state resilience (session restore via Redis).
+*   **6.4. Scalability:** The backend service (FastAPI, LangGraph) should be scalable to handle concurrent chat sessions based on expected user load.
+*   **6.5. Maintainability:**
+    *   Clean, well-documented Python code (FastAPI, Langchain/LangGraph).
+    *   Modular design of LangGraph nodes.
+    *   Clear separation of concerns (API interaction, conversational logic, state management).
+    *   Use of Pydantic for clear data contracts.
+*   **6.6. Observability:** Comprehensive tracing and logging via Langfuse are critical for monitoring, debugging, and improving the conversational experience.
+*   **6.7. Accessibility:** Chat interface elements should aim for WCAG 2.1 AA compliance.
+*   **6.8. Compatibility:** Chat feature must function correctly within the target ABC Hospital Network application platforms (web, mobile web).
 
-**5. Non-Functional Requirements (NFRs)**
+**7. Design & UX Considerations (Conversational)**
 
-*   *(Largely similar to previous version, updated references)*
-*   **5.1. Performance:** Form load < 1s, API calls < 300-500ms (p95).
-*   **5.2. Security:** HTTPS, secure handling of Apollo user context, API protection via Apollo auth, input validation, secure Redis connection. Adhere to Apollo Health security standards.
-*   **5.3. Reliability:** Graceful API/Redis error handling, session restore.
-*   **5.4. Accessibility:** WCAG 2.1 AA target for the form.
-*   **5.5. Compatibility:** Support Apollo Health app's target platforms/browsers/screen sizes.
-*   **5.6. Maintainability:** Code quality per Apollo Health standards, TypeScript, comments.
+*   **7.1. Conversational Flow:** Design for natural, efficient dialogue. Avoid overly rigid scripts. Allow for user corrections and clarifications.
+*   **7.2. Bot Persona:** Define a helpful, clear, and concise persona consistent with the ABC Hospital Network brand.
+*   **7.3. Clarity & Brevity:** Use clear language. Keep bot messages concise. Clearly present choices and information (like available slots).
+*   **7.4. Feedback:** Provide immediate feedback for user actions (e.g., "Got it," "Okay, checking..."). Confirm extracted information explicitly before proceeding.
+*   **7.5. Error Handling:** Design user-friendly error messages. Guide users on how to recover or proceed when errors occur (e.g., API failure, booking conflict, NLU misunderstanding).
+*   **7.6. Handling Ambiguity:** Design strategies for when user input is unclear (e.g., ask clarifying questions, offer options).
+*   **7.7. Use of Interactive Elements:** Where feasible in the chat UI, use buttons or lists for presenting options (patient selection, slots, yes/no confirmation) to reduce typing and ambiguity.
 
-**6. Design & UX Considerations**
+**8. API Specifications**
 
-*   *(Similar to previous version, emphasize consistency with Apollo Health)*
-*   **6.1. UI:** Clean, intuitive, **consistent with Apollo Health app design language**.
-*   **6.2. Flow:** Logical steps, clear self/other path, easy preference selection, seamless transitions.
-*   **6.3. Feedback:** Immediate visual feedback for actions, loading, validation, selection, confirmation.
-*   **6.4. Pre-fill Indication:** Clear visual cues for pre-filled data.
+*   **8.1. Chat Interaction Endpoint:**
+    *   `POST /chat/message`
+        *   **Request:** User message, session ID/user context (via headers/body/token).
+        *   **Response:** Chatbot's reply message(s).
+        *   **Action:** Triggers intent recognition or processes message through the active LangGraph session, updates Redis state, interacts with internal APIs as needed.
+*   **8.2. Internal APIs (FastAPI Wrapper - `main.py`):**
+    *   `GET /users/{user_id}`: (Potentially needed by chat backend) Fetches user details and associated family members. Requires ABC auth.
+    *   `GET /bookings/slots`: (Called by LangGraph node) Fetches available slots from Cal.com. Requires API key param. Params: `startTime`, `endTime`, `eventTypeId`/`eventTypeSlug`/`usernameList`, etc.
+    *   `POST /bookings`: (Called by LangGraph node) Creates a booking via Cal.com. Requires API key param. Payload includes booking details derived from `BookingState`.
+    *   `GET /session`: (Potentially called by chat backend on initiation) Retrieves existing Redis session state.
+    *   `POST /update-booking-form`: (May be replaced by direct Redis updates from LangGraph) Saves state to Redis.
+    *   *(Other Cal.com wrapper endpoints from `main.py` as needed by the conversational flow)*.
+*   **8.3. External APIs (Called by Backend):**
+    *   Cal.com API (via FastAPI wrapper)
+    *   LLM Provider API (e.g., OpenAI via Langchain)
+    *   Langfuse API
 
-**7. API Specifications (Phase 1 - Apollo Health Context)**
+**9. Data Models**
 
-*   *(Updated references, emphasizing Apollo auth)*
-*   **7.1. `GET /api/session`**: Requires Apollo auth context. Returns session linked to `apolloUserId`.
-*   **7.2. `POST /api/update-booking-form`**: Requires Apollo session. Saves partial `BookingData`.
-*   **7.3. `POST /api/book-appointment`**: Requires Apollo session. Validates `BookingData`, simulates booking, handles conflicts (409).
-*   **7.4. `GET /api/doctor-availability`**: Requires Apollo auth. Filters based on query params.
-
-**8. Data Models (Phase 1 - Apollo Health Context)**
-
-*   **8.1. Doctor, TimeSlot:** (Unchanged - mock data)
-*   **8.2. BookingData (Stored in Session):** (Unchanged from v1.1) - Contains patient details (self or other), preferences, selected slot, confirmation details.
-*   **8.3. Session (Stored in Redis)**
-    ```typescript
-    type Session = {
-      id: string // Unique session identifier (Redis key)
-      apolloUserId: string // Link to the logged-in Apollo Health user
-      created: number // Timestamp
-      lastActive: number // Timestamp
-      bookingData?: BookingData // Current state of the booking form
-    }
+*   **9.1. LangGraph State (`BookingState` - Managed in memory, persisted to Redis):**
+    ```python
+    # Example - Needs refinement based on langchain_bot.py structure
+    class BookingState(TypedDict):
+        user_id: str
+        session_id: str
+        patient_name: Optional[str]
+        patient_dob: Optional[str] # Store as ISO string?
+        is_self_booking: Optional[bool]
+        selected_family_member_id: Optional[str] # If booking for other known member
+        reason: Optional[str]
+        location_preference: Optional[str] # Could be specific ID or text needing resolution
+        specialty_preference: Optional[str] # Could be specific ID or text
+        doctor_preference: Optional[str] # Name, ID, or "any"
+        event_type_id: Optional[int] # Resolved from preferences
+        cal_user_ids_or_slugs: Optional[List[str]] # Resolved from preferences
+        available_slots_raw: Optional[List[Dict]] # Raw slots from API
+        presented_slots_text: Optional[str] # How slots were shown to user
+        selected_slot: Optional[Dict] # The specific chosen slot dict/timestamp
+        confirmation_details: Optional[Dict] # Details from successful booking response
+        last_bot_message: Optional[str]
+        error_message: Optional[str] # If an error occurred
+        # Potentially add chat history snippet
     ```
+*   **9.2. Redis Session Data:**
+    *   Key: `session:chatbook:{abc_user_id}`
+    *   Value: JSON serialization of the current `BookingState` or relevant session context.
+*   **9.3. Pydantic Models (`models.py`):** Utilized for:
+    *   Validating incoming requests to FastAPI endpoints.
+    *   Validating responses from Cal.com API calls.
+    *   Structuring data extracted by NLU before updating `BookingState`.
+    *   Defining request bodies for internal API calls (e.g., `Booking` model structure for `POST /bookings`).
+    *   Models like `User`, `Booking`, `Attendee`, `EventType`, `Schedule`, `UserCreateRequest`, `UserUpdateRequest`, `LoginRequest`, etc., are relevant for interacting with the Cal.com wrapper APIs.
 
-**9. Release Criteria (Phase 1)**
+**10. Technical Stack**
 
-*   All Phase 1 User Stories (expanded list) implemented and pass ACs.
-*   Form-based booking flow fully functional within the Apollo Health app context using mock data.
-*   Pre-fill, booking for others, session restore, dynamic refresh, conflict handling work as specified.
-*   Integration points (auth, context, UI) with Apollo Health app are functional and approved.
-*   NFRs met. No critical/high bugs. Code reviewed per Apollo Health standards.
+*   **Backend Framework:** FastAPI (Python)
+*   **Conversational AI/Orchestration:** Langchain, LangGraph (Python)
+*   **Natural Language Understanding/Generation:** LLM (e.g., OpenAI GPT-3.5/4 via Langchain `ChatOpenAI`)
+*   **Intent Recognition:** Semantic Router (Langchain) or custom classifier
+*   **Data Validation/Modeling:** Pydantic
+*   **Session State:** Redis (Upstash or self-hosted, accessed via `redis-py` or `upstash-redis`)
+*   **Observability/Tracing:** Langfuse (`langfuse` Python SDK)
+*   **API Communication (Internal/Cal.com):** `requests` or `httpx` (as used in `main.py`)
+*   **Deployment:** Containerized (Docker), served with `uvicorn`.
+*   **Environment Management:** `python-dotenv`
+*   **Authentication:** Leverages ABC Hospital Network's existing authentication mechanism (details TBD, likely JWT passed in headers). `PyJWT` might be used for decoding on the backend if needed.
 
-**10. Future Considerations**
+**11. Release Criteria**
 
-*   **Phase 2: Conversational AI Interface:** Replace the Phase 1 form with an AI chat interface. This interface will leverage **Azure OpenAI Service models** (e.g., GPT-4 via Azure) integrated via backend APIs (likely *not* using Vercel AI SDK directly if integrated deeply in existing backend). The chat interface would need to handle:
-    *   Natural language understanding to extract intent and entities (patient info, preferences).
-    *   Logic to check for pre-loaded Apollo user data and only ask for missing information.
-    *   Explicitly asking if the booking is for self or someone else.
-    *   Presenting availability and handling slot selection via conversation.
-    *   Confirmation flow via chat.
-    *   Utilizing the same Redis session mechanism and backend API calls for availability/booking developed in Phase 1.
-*   **Phase 3 onwards:** Persistent database, real-time availability, full appointment management, notifications, calendar integration, HIPAA compliance review for real data, etc.
+*   All User Stories implemented and pass ACs.
+*   Chat-based booking flow fully functional using mock data (or specified Cal.com setup).
+*   Intent recognition accurately triggers the booking flow.
+*   NLU correctly extracts required entities conversationally.
+*   Simplified patient selection (Self/Family) works as specified.
+*   Interaction with backend APIs (availability, booking, conflict handling) functions correctly from chat flow.
+*   Session state persistence and resumption via Redis are reliable.
+*   Langfuse integration provides comprehensive tracing of chat sessions, LLM calls, and API interactions.
+*   Integration points (auth, context, UI) with ABC Hospital Network app are functional.
+*   NFRs (performance, security, reliability) met. No critical/high bugs. Code reviewed.
 
-**11. Open Issues / Questions (Phase 1)**
+**12. Future Considerations**
 
-*   **OQ1:** Final confirmation of the *exact technical mechanism* for passing the authenticated Apollo user's context (UserID, Name, DOB) to the HealthConnect backend APIs.
-*   **OQ2:** Definitive list of required/optional fields required by Apollo Health for a mock appointment booking.
-*   **OQ3:** Definitive list of mock Locations, Specialties, Doctors for Phase 1.
-*   **OQ4:** Agreed-upon behavior if Redis is temporarily unavailable?
-*   **OQ5:** Confirmation of the Apollo Health application's front-end stack and any specific integration constraints or required libraries.
-*   **OQ6:** Specific Apollo Health styling guidelines or component library to be used/matched.
-*   **OQ7 (For Phase 2 Planning):** Which specific Azure OpenAI models are approved/available for use? What are the API endpoint details and authentication mechanisms for the Azure OpenAI service within the Apollo Health infrastructure?
+*   Integration with real EMR/Scheduling systems (beyond Cal.com).
+*   Handling real PHI (requires HIPAA compliance review).
+*   More sophisticated dialogue management (handling complex digressions, multi-intent messages).
+*   searching for doctor
+*   Proactive suggestions (e.g., "You're due for a check-up, want to book?").
+*   Multilingual support.
+*   Appointment management via chat (reschedule, cancel, view upcoming).
+*   Notifications/Reminders integration.
 
----
+**13. Open Issues / Questions**
 
-## Scope Definition Document: HealthConnect - Phase 1 (Integrated Form for Apollo Health)
-
-**Version:** 1.2 (Apollo Health Integration, Phase 1 Focus)
-**Date:** 2023-10-27
-**Project Phase:** Phase 1: Form-Based Integrated Booking
-
-**1. Project Overview & Goals (Recap)**
-
-HealthConnect aims to enhance the **Apollo Health** application by adding integrated medical appointment scheduling. **Phase 1** focuses on implementing a **form-based booking interface** within the existing Apollo Health app. This interface will utilize **mock doctor and availability data**, leverage pre-loaded logged-in user information, allow booking for oneself or others, and use Redis for temporary session/form state management.
-
-**Goals:** Deliver a functional, integrated booking form within the Apollo Health app, streamline the process using context, handle booking for others, establish backend session management, and prepare for Phase 2 (Conversational AI using Azure OpenAI).
-
-**2. In Scope Features (Phase 1)**
-
-*   **IS1: Form-Based User Interface:** Implementation within Apollo Health app, handling Self/Other booking paths, pre-filling data, required fields, preference selection, validation.
-*   **IS2: Mock Appointment Backend Logic:** APIs for mock availability (`GET /api/doctor-availability`) and mock booking (`POST /api/book-appointment`, including simulated conflict handling).
-*   **IS3: Session & State Management:** Redis (Upstash) for temporary form state linked to Apollo User ID, including incremental saving and session restore logic. APIs for session handling.
-*   **IS4: Integration with Apollo Health Application:** Receiving user context, API protection via Apollo auth, consistent UI styling, defined navigation entry/exit points.
-*   **IS5: Technical Foundation:** Development using agreed stack, implementing Phase 1 Data Models/APIs, adherence to NFRs. Dynamic slot refresh on preference change.
-*   **IS6: Testing:** Unit/Integration tests covering form logic, APIs, session handling, pre-fill, booking for others, dynamic updates, conflict handling. Usability and accessibility testing.
-
-**3. Out of Scope Features (Phase 1)**
-
-*   **OOS1: Phase 2: Conversational AI Interface:** The entire AI chat-based booking flow using **Azure OpenAI Service models** is out of scope for Phase 1.
-*   **OOS2:** User Authentication & Account Management (Handled by Apollo Health app).
-*   **OOS3:** Persistent Database Integration (Beyond Redis sessions).
-*   **OOS4:** Integration with Real EMR/Practice Management Systems or Real Doctor Schedules.
-*   **OOS5:** Handling or Storing Real Patient Health Information (PHI) persistently.
-*   **OOS6:** Payment Processing.
-*   **OOS7:** Insurance Verification.
-*   **OOS8:** Appointment Management (View History, Reschedule, Cancel).
-*   **OOS9:** Push Notifications or Email/SMS Reminders.
-*   **OOS10:** Calendar Integration (.ics files, API integration).
-*   **OOS11:** Multi-language Support.
-*   **OOS12:** Advanced Features (Admin Dashboards, Symptom Checkers, etc.).
-*   **OOS13:** PWA-specific features *beyond* basic compatibility with the host Apollo Health app.
-
-**4. Assumptions**
-
-*   **A1:** The Apollo Health app can securely provide UserID, Name, DOB context. Mechanism TBD.
-*   **A2:** The Apollo Health app provides the navigation entry point.
-*   **A3:** Agreed mock data is sufficient.
-*   **A4:** Redis (Upstash) is approved for temporary session state.
-*   **A5:** Target front-end stack compatibility or alternatives identified.
-*   **A6:** Access to Apollo Health dev standards and testing environment provided.
-*   **A7:** Azure subscription with access to Azure OpenAI service is planned/available for *future* Phase 2 development.
-
-**5. Constraints**
-
-*   **C1:** Dependency on Apollo Health app (auth, context, UI).
-*   **C2:** Mock data only.
-*   **C3:** Data persistence limited to Redis session TTL.
-*   **C4:** Reliance on Upstash Redis availability.
-*   **C5:** Adherence to Apollo Health technical and security standards.
-*   **C6:** Implicit budget/time constraints.
-*   **C7:** (For Phase 2 Planning) Phase 2 implementation will be constrained by capabilities/limitations/costs of approved Azure OpenAI models.
-
-**6. Deliverables (Phase 1)**
-
-*   **D1:** Functional form-based booking module integrated within the Apollo Health application environment (staging/testing).
-*   **D2:** Source code in Git repository.
-*   **D3:** Code documentation (comments) and README.
-*   **D4:** Test suite results.
-*   **D5:** Usability and accessibility testing reports (if applicable).
-
-**7. High-Level Acceptance Criteria (Phase 1)**
-
-*   Apollo users can access the feature with context correctly identified.
-*   Users can successfully complete booking flow for Self (with pre-fill) and Others using mock data.
-*   Form state persists via Redis session during active use.
-*   Integration points (auth, context, UI) work as expected within Apollo Health app.
-*   Dynamic slot updates and conflict handling work as described.
-*   Performance and accessibility targets met.
+*   **OQ1:** Final confirmation of the *exact technical mechanism* for passing the authenticated ABC user's context (UserID, Name, DOB, authorized family members list) to the Chatbook backend APIs.
+*   **OQ2:** Specific mapping between user-friendly location/specialty/doctor names mentioned in chat and the IDs/slugs required by the Cal.com API. How is this resolved? (Needs configuration or another API lookup).
+*   **OQ3:** Final decision on the specific LLM to be used (e.g., OpenAI model, Azure OpenAI endpoint) and associated API keys/access.
+*   **OQ4:** Detailed conversational design for error handling scenarios (API down, LLM unavailable, persistent NLU failures).
+*   **OQ5:** Strategy for handling cases where a user provides multiple pieces of information in one message (e.g., "Book for Jane for her cough at Main Campus").
+*   **OQ6:** Agreed-upon Redis instance details (URL, credentials) and security configuration.
+*   **OQ7:** Confirmation of ABC application's chat UI capabilities (e.g., support for buttons, lists).
 
 ---
