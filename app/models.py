@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Union
 from enum import Enum
@@ -94,6 +94,34 @@ class TokenResponse(BaseModel):
     refreshToken: str
     accessTokenExpiresAt: int
     refreshTokenExpiresAt: int
+
+class TokenPayload(BaseModel):
+    sub: str  # subject (user_id)
+    exp: datetime  # expiration time
+    iat: Optional[datetime] = None  # issued at
+    role: Optional[str] = None  # user role
+
+class SessionInfo(BaseModel):
+    user_id: str
+    username: str
+    email: str
+    role: str
+    created_at: datetime
+    expires_at: datetime
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class LoginResponse(BaseModel):
+    user_id: str
+    access_token: str
+    refresh_token: str
+    access_token_expires_at: datetime
+    refresh_token_expires_at: datetime
+
+class LogoutRequest(BaseModel):
+    access_token: str
 
 class CreateUserResponse(BaseModel):
     user: User

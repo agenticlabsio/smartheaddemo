@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict, Any, Optional, List, Union
 import requests
 import os
+from fastapi.security import OAuth2PasswordBearer
 from models import *
 from datetime import datetime
 from dotenv import load_dotenv
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+auth_router = APIRouter()
 user_router = APIRouter()
 availabilities_router = APIRouter()
 attendees_router = APIRouter()
@@ -31,6 +33,8 @@ bookings_router = APIRouter()
 event_router = APIRouter()
 schedule_router = APIRouter()
 webhooks_router = APIRouter()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 CAL_API_KEY = os.getenv("CAL_API_KEY")
 CAL_API_BASE_URL = "https://api.cal.com/v1"
@@ -50,16 +54,16 @@ def read_root():
     return {"message": "Cal.com API Integration with FastAPI"}
 
 # Webhook Helper Functions
-def make_request(method: str, url: str, data: dict = None, headers: dict = None):
+def make_request(method: str, url: str, data: dict = None, headers: dict = None, params: dict = None):
     try:
         if method == "GET":
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, params=params)
         elif method == "POST":
-            response = requests.post(url, json=data, headers=headers)
+            response = requests.post(url, json=data, headers=headers, params=params)
         elif method == "PATCH":
-            response = requests.patch(url, json=data, headers=headers)
+            response = requests.patch(url, json=data, headers=headers, params=params)
         elif method == "DELETE":
-            response = requests.delete(url, headers=headers)
+            response = requests.delete(url, headers=headers, params=params)
 
         response.raise_for_status()
         return response.json() if response.content else {}
@@ -70,38 +74,311 @@ def make_request(method: str, url: str, data: dict = None, headers: dict = None)
         )
     
 @webhooks_router.get("/webhooks", response_model=APIResponse)
-async def get_webhooks():
+async def get_webhooks(params: Dict = Depends(get_cal_api_params)):
     url = "https://api.cal.com/v1/webhooks"
-    api_response = make_request("GET", url, data=None)
+    api_response = make_request("GET", url, data=None, params=params)
     return APIResponse(status="success", data=api_response, error={})
 
 @webhooks_router.post("/webhooks", response_model=APIResponse)
-async def create_webhook(payload: Dict = Body(...)):
+async def create_webhook(
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
     url = "https://api.cal.com/v1/webhooks"
     headers = {"Content-Type": "application/json"}
-    api_response = make_request("POST", url, data=payload, headers=headers)
+    api_response = make_request("POST", url, data=payload, headers=headers, params=params)
     return APIResponse(status="success", data=api_response, error={})
 
 @webhooks_router.get("/webhooks/{webhook_id}", response_model=APIResponse)
-async def get_webhook(webhook_id: str):
+async def get_webhook(
+    webhook_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
     url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
-    api_response = make_request("GET", url, data=None)
+    api_response = make_request("GET", url, data=None, params=params)
     return APIResponse(status="success", data=api_response, error={})
 
 @webhooks_router.delete("/webhooks/{webhook_id}", response_model=APIResponse)
-async def delete_webhook(webhook_id: str):
+async def delete_webhook(
+    webhook_id: str,
+    params: Dict = Depends(get_cal_api_params)
+):
     url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
-    api_response = make_request("DELETE", url, data=None)
+    api_response = make_request("DELETE", url, data=None, params=params)
     return APIResponse(status="success", data=api_response, error={})
 
 @webhooks_router.patch("/webhooks/{webhook_id}", response_model=APIResponse)
-async def update_webhook(webhook_id: str, payload: Dict = Body(...)):
+async def update_webhook(
+    webhook_id: str,
+    payload: Dict = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
     url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
     headers = {"Content-Type": "application/json"}
-    api_response = make_request("PATCH", url, data=payload, headers=headers)
+    api_response = make_request("PATCH", url, data=payload, headers=headers, params=params)
     return APIResponse(status="success", data=api_response, error={})
 
 # User API endpoints
+# Dependency to get the current user from the token
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    # First check Redis for an active session
+    session_data = get_user_session(token)
+    if not session_data:
+        # If no active session, try to decode and validate the token
+        payload = decode_token(token)
+        if payload is None:
+            raise credentials_exception
+            
+        # Check if token is expired
+        expiration = datetime.fromtimestamp(payload.get("exp", 0))
+        if datetime.utcnow() > expiration:
+            raise credentials_exception
+            
+        # Verify user exists in Cal.com
+        user_id = payload.get("sub")
+        if not user_id:
+            raise credentials_exception
+            
+        # Return user data from token payload
+        return {
+            "user_id": user_id,
+            "role": payload.get("role", "USER")
+        }
+    
+    # Return user data from session
+    return {
+        "user_id": session_data.get("user_id"),
+        "username": session_data.get("username"),
+        "email": session_data.get("email"),
+        "role": session_data.get("role", "USER")
+    }
+
+@auth_router.post("/login", response_model=APIResponse)
+async def login(
+    login_data: LoginRequest = Body(...),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Login a user and create a session
+    """
+    # This endpoint would need to be customized based on how Cal.com authentication works
+    # For now, we'll simulate a login by fetching the user by email
+    
+    try:
+        # First, get all users
+        url = f"{CAL_API_BASE_URL}/users"
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        users_response = response.json()
+        
+        # Find the user with the matching email
+        user = None
+        for user_data in users_response.get("users", []):
+            if user_data.get("email") == login_data.email:
+                user = user_data
+                break
+                
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+        # In a real-world scenario, you would verify the password here
+        # For this example, we'll just assume the password is correct
+        
+        # Create tokens
+        user_id = str(user.get("id"))
+        username = user.get("username")
+        email = user.get("email")
+        role = user.get("role", "USER")
+        
+        access_token_data = create_access_token(user_id, role)
+        refresh_token_data = create_refresh_token(user_id)
+        
+        access_token = access_token_data["access_token"]
+        refresh_token = refresh_token_data["refresh_token"]
+        access_token_expires_at = access_token_data["expires_at"]
+        refresh_token_expires_at = refresh_token_data["expires_at"]
+        
+        # Store session in Redis
+        session_created = create_user_session(
+            user_id=user_id,
+            username=username,
+            email=email,
+            role=role,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            access_token_expires_at=access_token_expires_at,
+            refresh_token_expires_at=refresh_token_expires_at
+        )
+        
+        if not session_created:
+            raise HTTPException(status_code=500, detail="Failed to create user session")
+            
+        # Return the response
+        login_response = {
+            "user_id": user_id,
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "access_token_expires_at": access_token_expires_at.isoformat(),
+            "refresh_token_expires_at": refresh_token_expires_at.isoformat(),
+        }
+        
+        # Include user details
+        user_data = {
+            "id": user.get("id"),
+            "username": username,
+            "email": email,
+            "role": role
+        }
+        
+        return APIResponse(
+            status="success", 
+            data={"token": login_response, "user": user_data}
+        )
+        
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=e.response.status_code if hasattr(e, 'response') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+@auth_router.post("/logout", response_model=APIResponse)
+async def logout(
+    logout_data: LogoutRequest = Body(...),
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Logout a user and invalidate their session
+    """
+    try:
+        # Invalidate the session in Redis
+        session_invalidated = invalidate_session(logout_data.access_token)
+        
+        if not session_invalidated:
+            raise HTTPException(status_code=500, detail="Failed to invalidate user session")
+            
+        return APIResponse(
+            status="success", 
+            data={"message": "Successfully logged out"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+
+@auth_router.post("/refresh-token", response_model=APIResponse)
+async def refresh_token(
+    refresh_token: str = Body(..., embed=True)
+):
+    """
+    Refresh an access token using a refresh token
+    """
+    try:
+        # Validate the refresh token
+        refresh_data = validate_refresh_token(refresh_token)
+        
+        if not refresh_data:
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            
+        # Get user details from refresh token data
+        user_id = refresh_data.get("user_id")
+        old_access_token = refresh_data.get("access_token")
+        
+        # Invalidate the old session
+        invalidate_session(old_access_token)
+        
+        # Get user details from Cal.com
+        url = f"{CAL_API_BASE_URL}/users/{user_id}"
+        params = get_cal_api_params()
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        user = response.json()
+        
+        username = user.get("username")
+        email = user.get("email")
+        role = user.get("role", "USER")
+        
+        # Create new tokens
+        access_token_data = create_access_token(user_id, role)
+        refresh_token_data = create_refresh_token(user_id)
+        
+        access_token = access_token_data["access_token"]
+        new_refresh_token = refresh_token_data["refresh_token"]
+        access_token_expires_at = access_token_data["expires_at"]
+        refresh_token_expires_at = refresh_token_data["expires_at"]
+        
+        # Store new session in Redis
+        session_created = create_user_session(
+            user_id=user_id,
+            username=username,
+            email=email,
+            role=role,
+            access_token=access_token,
+            refresh_token=new_refresh_token,
+            access_token_expires_at=access_token_expires_at,
+            refresh_token_expires_at=refresh_token_expires_at
+        )
+        
+        if not session_created:
+            raise HTTPException(status_code=500, detail="Failed to create user session")
+            
+        # Return the response
+        token_response = {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token,
+            "access_token_expires_at": access_token_expires_at.isoformat(),
+            "refresh_token_expires_at": refresh_token_expires_at.isoformat(),
+        }
+        
+        return APIResponse(
+            status="success", 
+            data=token_response
+        )
+        
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=e.response.status_code if hasattr(e, 'response') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refreshing token: {str(e)}")
+
+@auth_router.get("/me", response_model=APIResponse)
+async def get_current_user_details(
+    current_user: Dict = Depends(get_current_user),
+    params: Dict = Depends(get_cal_api_params)
+):
+    """
+    Get details of the currently authenticated user
+    """
+    try:
+        user_id = current_user.get("user_id")
+        
+        # Get the full user details from Cal.com
+        url = f"{CAL_API_BASE_URL}/users/{user_id}"
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        user_data = response.json()
+        
+        return APIResponse(
+            status="success", 
+            data=user_data
+        )
+        
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=e.response.status_code if hasattr(e, 'response') else 500,
+            detail=f"Cal.com API error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting user details: {str(e)}")
+
 @user_router.get("/users", response_model=APIResponse)
 async def get_users(params: Dict = Depends(get_cal_api_params)):
     """
@@ -773,13 +1050,14 @@ async def update_schedule(
         )
 
 
+app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 app.include_router(user_router, prefix="/user", tags=["User"])
 app.include_router(availabilities_router, prefix="/availabilities", tags=["Availability"])
 app.include_router(attendees_router, prefix="/attendees", tags=["Attendee"])
 app.include_router(bookings_router, prefix="/bookings", tags=["Booking"])
-app.include_router(event_router, prefix="/event-types")
-app.include_router(schedule_router, prefix="/schedules")
-app.include_router(webhooks_router, prefix="/webhooks")
+app.include_router(event_router, prefix="/event-types", tags=["Event"])
+app.include_router(schedule_router, prefix="/schedules", tags=["Schedule"])
+app.include_router(webhooks_router, prefix="/webhooks", tags=["Webhook"])
 
 # Run with: uvicorn main:app --reload
 if __name__ == "__main__":
