@@ -1,12 +1,4 @@
-Okay, here is a revised Product Requirements Document (PRD), User Stories, and Technical Stack description for "Chatbook," incorporating your feedback, focusing on a single-phase, chat-based implementation using the specified technologies and removing "Apollo Health."
-
----
-
 **Product Requirements Document: Chatbook**
-
-**Version:** 1.0
-**Date:** 2024-05-23
-**Project:** Chatbook - Conversational Appointment Scheduling
 
 **1. Introduction**
 
