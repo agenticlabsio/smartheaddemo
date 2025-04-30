@@ -2,11 +2,17 @@ import os
 import json
 import redis
 from upstash_redis import Redis
+import json
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, Union
+import redis
+import jwt
+from app.models import UserRole
 from dotenv import load_dotenv
 
 load_dotenv()
 
-redis_client = Redis(url="https://grateful-pig-29112.upstash.io", token="AXG4AAIjcDFhYWIwYjcxMzMwMjE0MWU4ODY5MzhmNDIzNDg5YzY0NnAxMA")
+redis_client = Redis(url=os.environ.get("UPSTASH_REDIS_REST_URL"), token=os.environ.get("UPSTASH_REDIS_REST_TOKEN"))
 
 def load_session(apollo_user_id):
     session = redis_client.get(f"session:apollo:{apollo_user_id}")
@@ -15,27 +21,7 @@ def load_session(apollo_user_id):
     return {}
 
 def save_session(apollo_user_id, data):
-    redis_client.setex(f"session:apollo:{apollo_user_id}", 3600, json.dumps(data))
-
-
-# ------------
-
-
-import os
-import json
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Union
-import redis
-from dotenv import load_dotenv
-import jwt
-from models import UserRole
-
-load_dotenv()
-
-# Get Redis connection settings from environment variables
-REDIS_URL = os.getenv("REDIS_URL")
-if not REDIS_URL:
-    raise ValueError("REDIS_URL environment variable is not set")
+    redis_client.set(f"session:apollo:{apollo_user_id}", json.dumps(data), ex=3600)
 
 # JWT settings
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
@@ -47,7 +33,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 REFRESH_TOKEN_EXPIRE_DAYS = 7     # 7 days
 
 # Initialize Redis connection
-redis_client = redis.from_url(REDIS_URL)
 
 def create_access_token(user_id: str, role: str = UserRole.USER) -> Dict[str, Any]:
     """Create a new access token for a user"""

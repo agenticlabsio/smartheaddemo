@@ -397,98 +397,98 @@ async def get_users(params: Dict = Depends(get_cal_api_params)):
             detail=f"Cal.com API error: {str(e)}"
         )
 
-@user_router.post("/users", response_model=APIResponse)
-async def create_user(
-    user_data: UserCreateRequest = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new user
-    """
-    url = CAL_API_USERS_URL
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(
-            url, 
-            json=user_data.dict(exclude_none=True), 
-            params=params,
-            headers=headers
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+# @user_router.post("/users", response_model=APIResponse)
+# async def create_user(
+#     user_data: UserCreateRequest = Body(...),
+#     params: Dict = Depends(get_cal_api_params)
+# ):
+#     """
+#     Create a new user
+#     """
+#     url = CAL_API_USERS_URL
+#     headers = {"Content-Type": "application/json"}
+#     try:
+#         response = requests.post(
+#             url, 
+#             json=user_data.dict(exclude_none=True), 
+#             params=params,
+#             headers=headers
+#         )
+#         response.raise_for_status()
+#         api_response = response.json() if response.content else {}
+#         return APIResponse(status="success", data=api_response, error={})
+#     except requests.RequestException as e:
+#         raise HTTPException(
+#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
+#             detail=f"Cal.com API error: {str(e)}"
+#         )
 
-@user_router.get("/users/{user_id}", response_model=APIResponse)
-async def get_user(
-    user_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific user by ID
-    """
-    url = f"{CAL_API_USERS_URL}/{user_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+# @user_router.get("/users/{user_id}", response_model=APIResponse)
+# async def get_user(
+#     user_id: str,
+#     params: Dict = Depends(get_cal_api_params)
+# ):
+#     """
+#     Get a specific user by ID
+#     """
+#     url = f"{CAL_API_USERS_URL}/{user_id}"
+#     try:
+#         response = requests.get(url, params=params)
+#         response.raise_for_status()
+#         api_response = response.json() if response.content else {}
+#         return APIResponse(status="success", data=api_response, error={})
+#     except requests.RequestException as e:
+#         raise HTTPException(
+#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
+#             detail=f"Cal.com API error: {str(e)}"
+#         )
 
-@user_router.patch("/users/{user_id}", response_model=APIResponse)
-async def update_user(
-    user_id: str,
-    user_data: UserUpdateRequest = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Update an existing user
-    """
-    url = f"{CAL_API_USERS_URL}/{user_id}"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.patch(
-            url, 
-            json=user_data.dict(exclude_none=True), 
-            params=params,
-            headers=headers
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+# @user_router.patch("/users/{user_id}", response_model=APIResponse)
+# async def update_user(
+#     user_id: str,
+#     user_data: UserUpdateRequest = Body(...),
+#     params: Dict = Depends(get_cal_api_params)
+# ):
+#     """
+#     Update an existing user
+#     """
+#     url = f"{CAL_API_USERS_URL}/{user_id}"
+#     headers = {"Content-Type": "application/json"}
+#     try:
+#         response = requests.patch(
+#             url, 
+#             json=user_data.dict(exclude_none=True), 
+#             params=params,
+#             headers=headers
+#         )
+#         response.raise_for_status()
+#         api_response = response.json() if response.content else {}
+#         return APIResponse(status="success", data=api_response, error={})
+#     except requests.RequestException as e:
+#         raise HTTPException(
+#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
+#             detail=f"Cal.com API error: {str(e)}"
+#         )
 
-@user_router.delete("/users/{user_id}", response_model=APIResponse)
-async def delete_user(
-    user_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Delete a user by ID
-    """
-    url = f"{CAL_API_USERS_URL}/{user_id}"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+# @user_router.delete("/users/{user_id}", response_model=APIResponse)
+# async def delete_user(
+#     user_id: str,
+#     params: Dict = Depends(get_cal_api_params)
+# ):
+#     """
+#     Delete a user by ID
+#     """
+#     url = f"{CAL_API_USERS_URL}/{user_id}"
+#     try:
+#         response = requests.delete(url, params=params)
+#         response.raise_for_status()
+#         api_response = response.json() if response.content else {}
+#         return APIResponse(status="success", data=api_response, error={})
+#     except requests.RequestException as e:
+#         raise HTTPException(
+#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
+#             detail=f"Cal.com API error: {str(e)}"
+#         )
 
 # Attendees API endpoints
 @attendees_router.get("/attendees", response_model=APIResponse)
