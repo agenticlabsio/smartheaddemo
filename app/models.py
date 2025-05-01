@@ -1,7 +1,3 @@
-"""
-Models for HealthConnect API
-This file contains both SQLAlchemy database models and Pydantic schema models.
-"""
 import enum
 from enum import Enum
 from sqlalchemy.sql import func
