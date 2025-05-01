@@ -12,31 +12,23 @@ from models import (
 )
 
 class UserRepository:
-    """Repository for User operations"""
-    
     def __init__(self, db: Session):
         self.db = db
-        
+    
     def get_user_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
         return self.db.query(User).filter(User.id == user_id).first()
-    
-    def get_user_by_email(self, email: str) -> Optional[User]:
-        """Get user by email"""
-        return self.db.query(User).filter(User.email == email).first()
     
     def get_user_by_username(self, username: str) -> Optional[User]:
         """Get user by username"""
         return self.db.query(User).filter(User.username == username).first()
     
-    def create_user(self, user_data: UserCreate) -> User:
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        """Get user by email"""
+        return self.db.query(User).filter(User.email == email).first()
+    
+    def create_user(self, user_data: UserCreate, hashed_password: str) -> User:
         """Create a new user"""
-        from passlib.context import CryptContext
-        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        
-        # Hash password
-        hashed_password = pwd_context.hash(user_data.password)
-        
         db_user = User(
             username=user_data.username,
             email=user_data.email,
@@ -47,33 +39,44 @@ class UserRepository:
             address=user_data.address,
             is_active=user_data.is_active
         )
-        
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
-        
         return db_user
     
-    def update_user(self, user_id: int, updates: Dict[str, Any]) -> Optional[User]:
-        """Update user information"""
+    def update_user(self, user_id: int, user_data: Dict[str, Any]) -> Optional[User]:
+        """Update user details"""
         user = self.get_user_by_id(user_id)
-        
         if not user:
             return None
         
-        # Update fields
-        for key, value in updates.items():
+        for key, value in user_data.items():
             if hasattr(user, key) and value is not None:
                 setattr(user, key, value)
         
         self.db.commit()
         self.db.refresh(user)
-        
         return user
     
-    def get_all_users(self) -> List[User]:
-        """Get all users"""
-        return self.db.query(User).filter(User.is_active == True).all()
+    def change_password(self, user_id: int, hashed_password: str) -> bool:
+        """Update user password"""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        user.hashed_password = hashed_password
+        self.db.commit()
+        return True
+    
+    def deactivate_user(self, user_id: int) -> bool:
+        """Deactivate a user account"""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        user.is_active = False
+        self.db.commit()
+        return True
 
 
 class FamilyMemberRepository:

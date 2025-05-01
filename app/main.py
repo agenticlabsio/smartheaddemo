@@ -23,6 +23,7 @@ from repositories import (
     BookingSessionRepository, DoctorScheduleRepository
 )
 from utils.langchain_integration import get_booking_agent
+from auth import router as auth_router, get_current_active_user
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +34,8 @@ app = FastAPI(
     description="API for HealthConnect appointment booking system",
     version="1.0.0"
 )
+
+app.include_router(auth_router)
 
 # CORS middleware
 app.add_middleware(
@@ -52,22 +55,29 @@ redis_client = BookingStateRedisClient(
 # --------------- Session Management Routes ---------------
 
 @app.post("/api/session")
-async def create_session(user_id: str = Body(...)):
+async def create_session(
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Create a new booking session"""
     session_id = str(uuid.uuid4())
+    user_id = str(current_user.id)
     
     # Create new booking state in Redis
     booking_state = redis_client.create_new_booking_session(user_id, session_id)
     
     # Create a database record for the session
-    db = next(get_db())
     repo = BookingSessionRepository(db)
     session_record = repo.create_session(user_id, session_id)
     
     return {"session_id": session_id, "user_id": user_id}
 
 @app.get("/api/session/{session_id}")
-async def get_session(session_id: str, db: Session = Depends(get_db)):
+async def get_session(
+    session_id: str, 
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Get session information"""
     repo = BookingSessionRepository(db)
     session = repo.get_session_by_id(session_id)
@@ -75,8 +85,12 @@ async def get_session(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+    
     # Get booking state from Redis
-    booking_state = redis_client.get_booking_state(session.user_id)
+    booking_state = redis_client.get_booking_state(str(session.user_id))
     
     if not booking_state:
         raise HTTPException(status_code=404, detail="Session state not found in Redis")
@@ -89,7 +103,11 @@ async def get_session(session_id: str, db: Session = Depends(get_db)):
     }
 
 @app.delete("/api/session/{session_id}")
-async def delete_session(session_id: str, db: Session = Depends(get_db)):
+async def delete_session(
+    session_id: str, 
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Delete a session"""
     repo = BookingSessionRepository(db)
     session = repo.get_session_by_id(session_id)
@@ -97,8 +115,12 @@ async def delete_session(session_id: str, db: Session = Depends(get_db)):
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+    
     # Delete from Redis
-    redis_client.delete_session(session.user_id)
+    redis_client.delete_session(str(session.user_id))
     
     # Update session status in database
     repo.update_session(session_id, {"status": BookingSessionStatus.ABANDONED})
@@ -106,7 +128,11 @@ async def delete_session(session_id: str, db: Session = Depends(get_db)):
     return {"message": "Session deleted successfully"}
 
 @app.get("/api/session-status/{session_id}")
-async def check_session_status(session_id: str, db: Session = Depends(get_db)):
+async def check_session_status(
+    session_id: str, 
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Check if a session is valid and not expired"""
     repo = BookingSessionRepository(db)
     session = repo.get_session_by_id(session_id)
@@ -114,12 +140,16 @@ async def check_session_status(session_id: str, db: Session = Depends(get_db)):
     if not session:
         return {"valid": False, "message": "Session not found"}
     
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+    
     # Check if session is expired
     if session.expires_at < datetime.now():
         return {"valid": False, "message": "Session expired"}
     
     # Check if session state exists in Redis
-    ttl = redis_client.get_session_ttl(session.user_id)
+    ttl = redis_client.get_session_ttl(str(session.user_id))
     redis_valid = ttl is not None and ttl > 0
     
     return {
@@ -130,45 +160,43 @@ async def check_session_status(session_id: str, db: Session = Depends(get_db)):
 
 # --------------- User Context Routes ---------------
 
-@app.get("/api/user-context/{user_id}", response_model=UserContext)
-async def get_user_context(user_id: str, db: Session = Depends(get_db)):
+@app.get("/api/user-context", response_model=UserContext)
+async def get_user_context(
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Get user context including family members for patient selection"""
-    user_repo = UserRepository(db)
+    user_id = str(current_user.id)
     family_repo = FamilyMemberRepository(db)
-    
-    user = user_repo.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     
     # Get authorized family members
     family_members = family_repo.get_authorized_family_members(user_id)
     
     return UserContext(
-        user_id=str(user.id),
-        full_name=user.full_name,
-        date_of_birth=user.date_of_birth,
+        user_id=user_id,
+        full_name=current_user.full_name,
+        date_of_birth=current_user.date_of_birth,
         family_members=family_members
     )
 
 # --------------- Patient Selection Routes ---------------
 
-@app.get("/api/patient-options/{user_id}", response_model=List[PatientOption])
-async def get_patient_options(user_id: str, db: Session = Depends(get_db)):
+@app.get("/api/patient-options", response_model=List[PatientOption])
+async def get_patient_options(
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Get patient selection options for the user (self + family members)"""
-    user_repo = UserRepository(db)
+    user_id = str(current_user.id)
     family_repo = FamilyMemberRepository(db)
-    
-    user = user_repo.get_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
     
     # Create "self" option
     options = [
         PatientOption(
-            id=str(user.id),
-            name=user.full_name,
+            id=user_id,
+            name=current_user.full_name,
             relationship="SELF",  # Using plain string instead of enum
-            date_of_birth=user.date_of_birth
+            date_of_birth=current_user.date_of_birth
         )
     ]
     
@@ -191,6 +219,7 @@ async def select_patient(
     session_id: str, 
     is_self: bool = Body(...),
     family_member_id: Optional[str] = Body(None),
+    current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Select patient for appointment booking"""
@@ -201,15 +230,15 @@ async def select_patient(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Get user info
-    user_repo = UserRepository(db)
-    user = user_repo.get_user_by_id(session.user_id)
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
     
     # Prepare updates
     updates = {
         "is_self_booking": is_self,
-        "patient_name": user.full_name if is_self else None,
-        "patient_dob": user.date_of_birth if is_self else None,
+        "patient_name": current_user.full_name if is_self else None,
+        "patient_dob": current_user.date_of_birth if is_self else None,
     }
     
     # If booking for family member, get their info
@@ -217,7 +246,7 @@ async def select_patient(
         family_repo = FamilyMemberRepository(db)
         family_member = family_repo.get_family_member_by_id(family_member_id)
         
-        if not family_member or family_member.user_id != int(session.user_id):
+        if not family_member or family_member.user_id != current_user.id:
             raise HTTPException(status_code=404, detail="Family member not found or not authorized")
         
         updates.update({
@@ -227,7 +256,7 @@ async def select_patient(
         })
     
     # Update Redis state
-    booking_state = redis_client.update_booking_state(session.user_id, updates)
+    booking_state = redis_client.update_booking_state(str(session.user_id), updates)
     if not booking_state:
         raise HTTPException(status_code=500, detail="Failed to update booking state")
     
@@ -244,7 +273,10 @@ async def select_patient(
 # --------------- Appointment Logic Routes ---------------
 
 @app.get("/api/specialties", response_model=List[Dict[str, str]])
-async def get_specialties(db: Session = Depends(get_db)):
+async def get_specialties(
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Get all available medical specialties"""
     repo = SpecialtyRepository(db)
     specialties = repo.get_all_specialties()
@@ -252,7 +284,10 @@ async def get_specialties(db: Session = Depends(get_db)):
     return [{"id": str(s.id), "name": s.name, "description": s.description or ""} for s in specialties]
 
 @app.get("/api/locations", response_model=List[Dict[str, str]])
-async def get_locations(db: Session = Depends(get_db)):
+async def get_locations(
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Get all available locations"""
     repo = LocationRepository(db)
     locations = repo.get_all_locations()
@@ -263,6 +298,7 @@ async def get_locations(db: Session = Depends(get_db)):
 async def get_doctors(
     specialty: Optional[str] = None,
     location: Optional[str] = None,
+    current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get doctors filtered by specialty and/or location"""
@@ -282,6 +318,7 @@ async def get_doctors(
 @app.post("/api/doctor-availability", response_model=List[DoctorAvailabilityResponse])
 async def get_doctor_availability(
     request: DoctorAvailabilityRequest,
+    current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get doctor availability based on filters"""
@@ -384,6 +421,7 @@ async def book_appointment(
     slot_start: str = Body(...),  # ISO format
     slot_end: str = Body(...),    # ISO format
     notes: Optional[str] = Body(None),
+    current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Book an appointment using selected doctor and time slot"""
@@ -394,8 +432,12 @@ async def book_appointment(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+    
     # Get booking state from Redis
-    booking_state = redis_client.get_booking_state(session.user_id)
+    booking_state = redis_client.get_booking_state(str(session.user_id))
     if not booking_state:
         raise HTTPException(status_code=404, detail="Session state not found")
     
@@ -404,10 +446,6 @@ async def book_appointment(
     doctor = doctor_repo.get_doctor_by_id(doctor_id)
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
-    
-    # Get user
-    user_repo = UserRepository(db)
-    user = user_repo.get_user_by_id(session.user_id)
     
     # Parse slot times
     start_time = datetime.fromisoformat(slot_start)
@@ -431,7 +469,7 @@ async def book_appointment(
     appt_repo = AppointmentRepository(db)
     
     appointment_data = AppointmentCreate(
-        user_id=int(session.user_id),
+        user_id=current_user.id,
         family_member_id=int(session.family_member_id) if session.family_member_id else None,
         doctor_id=int(doctor_id),
         location_id=doctor.location_id,
@@ -456,7 +494,7 @@ async def book_appointment(
     
     # Update Redis state
     redis_client.update_booking_state(
-        session.user_id,
+        str(session.user_id),
         {
             "selected_slot": {
                 "start": slot_start,
@@ -467,7 +505,7 @@ async def book_appointment(
                 "doctor_name": doctor.full_name,
                 "date_time": slot_start,
                 "location": doctor.location.name if doctor.location else "",
-                "patient_name": booking_state.patient_name or user.full_name
+                "patient_name": booking_state.patient_name or current_user.full_name
             }
         }
     )
@@ -477,7 +515,11 @@ async def book_appointment(
 # --------------- LangChain Integration Routes ---------------
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat_message(request: ChatRequest, db: Session = Depends(get_db)):
+async def chat_message(
+    request: ChatRequest,
+    current_user: UserRead = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
     """Process a user message in the conversational booking flow"""
     session_id = request.session_id
     
@@ -486,8 +528,7 @@ async def chat_message(request: ChatRequest, db: Session = Depends(get_db)):
         session_id = str(uuid.uuid4())
         # Initialize it with proper database and Redis entries
         repo = BookingSessionRepository(db)
-        # Use a placeholder user ID (in real app, this would come from auth)
-        user_id = "123"  # Placeholder
+        user_id = str(current_user.id)
         repo.create_session(user_id, session_id)
         redis_client.create_new_booking_session(user_id, session_id)
     else:
@@ -497,10 +538,14 @@ async def chat_message(request: ChatRequest, db: Session = Depends(get_db)):
         
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Verify session belongs to current user
+        if str(session.user_id) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this session")
     
     # Get booking state from Redis
     session = repo.get_session_by_id(session_id)
-    booking_state = redis_client.get_booking_state(session.user_id)
+    booking_state = redis_client.get_booking_state(str(session.user_id))
     
     # Get LangChain booking agent
     agent = get_booking_agent(redis_client, None, db)  # Removed cal_api_client dependency
@@ -525,6 +570,7 @@ async def chat_message(request: ChatRequest, db: Session = Depends(get_db)):
 async def update_booking_form(
     session_id: str,
     form_data: Dict[str, Any] = Body(...),
+    current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Save partial booking form data to Redis session"""
@@ -535,8 +581,12 @@ async def update_booking_form(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
+    # Verify session belongs to current user
+    if str(session.user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session")
+    
     # Update Redis state
-    redis_client.update_booking_state(session.user_id, form_data)
+    redis_client.update_booking_state(str(session.user_id), form_data)
     
     # Update session in database for fields that match the model
     valid_fields = [
@@ -553,6 +603,7 @@ async def update_booking_form(
 @app.post("/api/validate-patient-info")
 async def validate_patient_info(
     patient_info: Dict[str, Any] = Body(...),
+    current_user: UserRead = Depends(get_current_active_user)
 ):
     """Validate patient information"""
     # Implement validation logic here
@@ -575,8 +626,6 @@ async def validate_patient_info(
         "valid": len(errors) == 0,
         "errors": errors
     }
-
-# --------------- Helper method for DoctorScheduleRepository ---------------
 
 # Start the app
 if __name__ == "__main__":
