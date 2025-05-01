@@ -22,7 +22,7 @@ from repositories import (
     LocationRepository, SpecialtyRepository, AppointmentRepository,
     BookingSessionRepository, DoctorScheduleRepository
 )
-from chatbook.app.utils.langchain_integration import get_booking_agent
+from utils.langchain_integration import get_booking_agent
 
 # Load environment variables
 load_dotenv()
