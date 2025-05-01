@@ -1,1065 +1,584 @@
-from fastapi import FastAPI, HTTPException, Depends, Query, Body, Path, APIRouter
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Any, Optional, List, Union
-import requests
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from typing import List, Optional, Dict, Any, Union
+from datetime import datetime, timedelta, date
+import uuid
+import json
 import os
-from fastapi.security import OAuth2PasswordBearer
-from models import *
-from datetime import datetime
 from dotenv import load_dotenv
 
+from models import (
+    UserRead, FamilyMemberRead, PatientOption, DoctorAvailabilityRequest, 
+    DoctorAvailabilityResponse, BookingState, ChatRequest, ChatResponse,
+    BookingSessionStatus, CalSlot, AppointmentCreate, AppointmentRead,
+    UserContext, AppointmentStatus
+)
+from redis_client import BookingStateRedisClient
+from database import get_db
+from repositories import (
+    UserRepository, FamilyMemberRepository, DoctorRepository,
+    LocationRepository, SpecialtyRepository, AppointmentRepository,
+    BookingSessionRepository, DoctorScheduleRepository
+)
+from chatbook.app.utils.langchain_integration import get_booking_agent
+
+# Load environment variables
 load_dotenv()
 
+# Initialize FastAPI app
 app = FastAPI(
-    title="Agentic Labs - Health Connect",
-    description="Chatbook",
+    title="HealthConnect API",
+    description="API for HealthConnect appointment booking system",
     version="1.0.0"
 )
 
-# Add CORS middleware
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, specify actual origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-auth_router = APIRouter()
-user_router = APIRouter()
-availabilities_router = APIRouter()
-attendees_router = APIRouter()
-bookings_router = APIRouter()
-event_router = APIRouter()
-schedule_router = APIRouter()
-webhooks_router = APIRouter()
+# Initialize Redis client
+redis_client = BookingStateRedisClient(
+    redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+    ttl_seconds=int(os.getenv("SESSION_TTL_SECONDS", "3600"))
+)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# --------------- Session Management Routes ---------------
 
-CAL_API_KEY = os.getenv("CAL_API_KEY")
-CAL_API_BASE_URL = "https://api.cal.com/v1"
-CAL_API_USERS_URL = f"{CAL_API_BASE_URL}/users"
-CAL_API_ATTENDEES_URL = f"{CAL_API_BASE_URL}/attendees"
-CAL_API_SLOTS_URL = f"{CAL_API_BASE_URL}/slots"
-CAL_API_BOOKINGS_URL = "https://api.cal.com/v1/bookings"
-CAL_API_AVAILABILITIES_URL = "https://api.cal.com/v1/availabilities"
-
-# Function to get API key as query parameter
-def get_cal_api_params():
-    return {"apiKey": CAL_API_KEY}
-
-# Routes
-@app.get("/")
-def read_root():
-    return {"message": "Cal.com API Integration with FastAPI"}
-
-# Webhook Helper Functions
-def make_request(method: str, url: str, data: dict = None, headers: dict = None, params: dict = None):
-    try:
-        if method == "GET":
-            response = requests.get(url, headers=headers, params=params)
-        elif method == "POST":
-            response = requests.post(url, json=data, headers=headers, params=params)
-        elif method == "PATCH":
-            response = requests.patch(url, json=data, headers=headers, params=params)
-        elif method == "DELETE":
-            response = requests.delete(url, headers=headers, params=params)
-
-        response.raise_for_status()
-        return response.json() if response.content else {}
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+@app.post("/api/session")
+async def create_session(user_id: str = Body(...)):
+    """Create a new booking session"""
+    session_id = str(uuid.uuid4())
     
-@webhooks_router.get("/webhooks", response_model=APIResponse)
-async def get_webhooks(params: Dict = Depends(get_cal_api_params)):
-    url = "https://api.cal.com/v1/webhooks"
-    api_response = make_request("GET", url, data=None, params=params)
-    return APIResponse(status="success", data=api_response, error={})
-
-@webhooks_router.post("/webhooks", response_model=APIResponse)
-async def create_webhook(
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    url = "https://api.cal.com/v1/webhooks"
-    headers = {"Content-Type": "application/json"}
-    api_response = make_request("POST", url, data=payload, headers=headers, params=params)
-    return APIResponse(status="success", data=api_response, error={})
-
-@webhooks_router.get("/webhooks/{webhook_id}", response_model=APIResponse)
-async def get_webhook(
-    webhook_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
-    api_response = make_request("GET", url, data=None, params=params)
-    return APIResponse(status="success", data=api_response, error={})
-
-@webhooks_router.delete("/webhooks/{webhook_id}", response_model=APIResponse)
-async def delete_webhook(
-    webhook_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
-    api_response = make_request("DELETE", url, data=None, params=params)
-    return APIResponse(status="success", data=api_response, error={})
-
-@webhooks_router.patch("/webhooks/{webhook_id}", response_model=APIResponse)
-async def update_webhook(
-    webhook_id: str,
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    url = f"https://api.cal.com/v1/webhooks/{webhook_id}"
-    headers = {"Content-Type": "application/json"}
-    api_response = make_request("PATCH", url, data=payload, headers=headers, params=params)
-    return APIResponse(status="success", data=api_response, error={})
-
-# User API endpoints
-# Dependency to get the current user from the token
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    # Create new booking state in Redis
+    booking_state = redis_client.create_new_booking_session(user_id, session_id)
     
-    # First check Redis for an active session
-    session_data = get_user_session(token)
-    if not session_data:
-        # If no active session, try to decode and validate the token
-        payload = decode_token(token)
-        if payload is None:
-            raise credentials_exception
-            
-        # Check if token is expired
-        expiration = datetime.fromtimestamp(payload.get("exp", 0))
-        if datetime.utcnow() > expiration:
-            raise credentials_exception
-            
-        # Verify user exists in Cal.com
-        user_id = payload.get("sub")
-        if not user_id:
-            raise credentials_exception
-            
-        # Return user data from token payload
-        return {
-            "user_id": user_id,
-            "role": payload.get("role", "USER")
-        }
+    # Create a database record for the session
+    db = next(get_db())
+    repo = BookingSessionRepository(db)
+    session_record = repo.create_session(user_id, session_id)
     
-    # Return user data from session
+    return {"session_id": session_id, "user_id": user_id}
+
+@app.get("/api/session/{session_id}")
+async def get_session(session_id: str, db: Session = Depends(get_db)):
+    """Get session information"""
+    repo = BookingSessionRepository(db)
+    session = repo.get_session_by_id(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get booking state from Redis
+    booking_state = redis_client.get_booking_state(session.user_id)
+    
+    if not booking_state:
+        raise HTTPException(status_code=404, detail="Session state not found in Redis")
+    
     return {
-        "user_id": session_data.get("user_id"),
-        "username": session_data.get("username"),
-        "email": session_data.get("email"),
-        "role": session_data.get("role", "USER")
+        "session_id": session_id,
+        "user_id": session.user_id,
+        "status": session.status,
+        "booking_state": booking_state.model_dump()
     }
 
-@auth_router.post("/login", response_model=APIResponse)
-async def login(
-    login_data: LoginRequest = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Login a user and create a session
-    """
-    # This endpoint would need to be customized based on how Cal.com authentication works
-    # For now, we'll simulate a login by fetching the user by email
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str, db: Session = Depends(get_db)):
+    """Delete a session"""
+    repo = BookingSessionRepository(db)
+    session = repo.get_session_by_id(session_id)
     
-    try:
-        # First, get all users
-        url = f"{CAL_API_BASE_URL}/users"
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        users_response = response.json()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Delete from Redis
+    redis_client.delete_session(session.user_id)
+    
+    # Update session status in database
+    repo.update_session(session_id, {"status": BookingSessionStatus.ABANDONED})
+    
+    return {"message": "Session deleted successfully"}
+
+@app.get("/api/session-status/{session_id}")
+async def check_session_status(session_id: str, db: Session = Depends(get_db)):
+    """Check if a session is valid and not expired"""
+    repo = BookingSessionRepository(db)
+    session = repo.get_session_by_id(session_id)
+    
+    if not session:
+        return {"valid": False, "message": "Session not found"}
+    
+    # Check if session is expired
+    if session.expires_at < datetime.now():
+        return {"valid": False, "message": "Session expired"}
+    
+    # Check if session state exists in Redis
+    ttl = redis_client.get_session_ttl(session.user_id)
+    redis_valid = ttl is not None and ttl > 0
+    
+    return {
+        "valid": redis_valid, 
+        "ttl_seconds": ttl if redis_valid else 0,
+        "status": session.status
+    }
+
+# --------------- User Context Routes ---------------
+
+@app.get("/api/user-context/{user_id}", response_model=UserContext)
+async def get_user_context(user_id: str, db: Session = Depends(get_db)):
+    """Get user context including family members for patient selection"""
+    user_repo = UserRepository(db)
+    family_repo = FamilyMemberRepository(db)
+    
+    user = user_repo.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get authorized family members
+    family_members = family_repo.get_authorized_family_members(user_id)
+    
+    return UserContext(
+        user_id=str(user.id),
+        full_name=user.full_name,
+        date_of_birth=user.date_of_birth,
+        family_members=family_members
+    )
+
+# --------------- Patient Selection Routes ---------------
+
+@app.get("/api/patient-options/{user_id}", response_model=List[PatientOption])
+async def get_patient_options(user_id: str, db: Session = Depends(get_db)):
+    """Get patient selection options for the user (self + family members)"""
+    user_repo = UserRepository(db)
+    family_repo = FamilyMemberRepository(db)
+    
+    user = user_repo.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Create "self" option
+    options = [
+        PatientOption(
+            id=str(user.id),
+            name=user.full_name,
+            relationship="SELF",  # Using plain string instead of enum
+            date_of_birth=user.date_of_birth
+        )
+    ]
+    
+    # Add authorized family members
+    family_members = family_repo.get_authorized_family_members(user_id)
+    for member in family_members:
+        options.append(
+            PatientOption(
+                id=str(member.id),
+                name=member.full_name,
+                relationship=member.relation_type.value,  # Access the value of the enum
+                date_of_birth=member.date_of_birth
+            )
+        )
+    
+    return options
+
+@app.post("/api/select-patient/{session_id}")
+async def select_patient(
+    session_id: str, 
+    is_self: bool = Body(...),
+    family_member_id: Optional[str] = Body(None),
+    db: Session = Depends(get_db)
+):
+    """Select patient for appointment booking"""
+    # Get session
+    session_repo = BookingSessionRepository(db)
+    session = session_repo.get_session_by_id(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get user info
+    user_repo = UserRepository(db)
+    user = user_repo.get_user_by_id(session.user_id)
+    
+    # Prepare updates
+    updates = {
+        "is_self_booking": is_self,
+        "patient_name": user.full_name if is_self else None,
+        "patient_dob": user.date_of_birth if is_self else None,
+    }
+    
+    # If booking for family member, get their info
+    if not is_self and family_member_id:
+        family_repo = FamilyMemberRepository(db)
+        family_member = family_repo.get_family_member_by_id(family_member_id)
         
-        # Find the user with the matching email
-        user = None
-        for user_data in users_response.get("users", []):
-            if user_data.get("email") == login_data.email:
-                user = user_data
-                break
+        if not family_member or family_member.user_id != int(session.user_id):
+            raise HTTPException(status_code=404, detail="Family member not found or not authorized")
+        
+        updates.update({
+            "family_member_id": family_member_id,
+            "patient_name": family_member.full_name,
+            "patient_dob": family_member.date_of_birth
+        })
+    
+    # Update Redis state
+    booking_state = redis_client.update_booking_state(session.user_id, updates)
+    if not booking_state:
+        raise HTTPException(status_code=500, detail="Failed to update booking state")
+    
+    # Update database session
+    session_repo.update_session(session_id, updates)
+    
+    return {
+        "session_id": session_id,
+        "is_self_booking": is_self,
+        "patient_name": updates["patient_name"],
+        "patient_dob": updates["patient_dob"].isoformat() if updates["patient_dob"] else None,
+    }
+
+# --------------- Appointment Logic Routes ---------------
+
+@app.get("/api/specialties", response_model=List[Dict[str, str]])
+async def get_specialties(db: Session = Depends(get_db)):
+    """Get all available medical specialties"""
+    repo = SpecialtyRepository(db)
+    specialties = repo.get_all_specialties()
+    
+    return [{"id": str(s.id), "name": s.name, "description": s.description or ""} for s in specialties]
+
+@app.get("/api/locations", response_model=List[Dict[str, str]])
+async def get_locations(db: Session = Depends(get_db)):
+    """Get all available locations"""
+    repo = LocationRepository(db)
+    locations = repo.get_all_locations()
+    
+    return [{"id": str(l.id), "name": l.name, "address": l.address} for l in locations]
+
+@app.get("/api/doctors", response_model=List[Dict[str, Any]])
+async def get_doctors(
+    specialty: Optional[str] = None,
+    location: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get doctors filtered by specialty and/or location"""
+    repo = DoctorRepository(db)
+    doctors = repo.get_doctors(specialty=specialty, location=location)
+    
+    return [
+        {
+            "id": str(d.id),
+            "name": d.full_name,
+            "specialty": d.specialty,
+            "location": d.location.name if d.location else None
+        }
+        for d in doctors
+    ]
+
+@app.post("/api/doctor-availability", response_model=List[DoctorAvailabilityResponse])
+async def get_doctor_availability(
+    request: DoctorAvailabilityRequest,
+    db: Session = Depends(get_db)
+):
+    """Get doctor availability based on filters"""
+    # Set default date range if not provided
+    if not request.start_date:
+        request.start_date = date.today()
+    if not request.end_date:
+        request.end_date = date.today() + timedelta(days=14)
+    
+    # Get doctors matching the criteria
+    doctor_repo = DoctorRepository(db)
+    doctors = doctor_repo.get_doctors(
+        specialty=request.specialty,
+        location=request.location,
+        doctor_name=request.doctor_name
+    )
+    
+    if not doctors:
+        return []
+    
+    results = []
+    schedule_repo = DoctorScheduleRepository(db)
+    appt_repo = AppointmentRepository(db)
+    
+    # For each doctor, get availability from their schedule
+    for doctor in doctors:
+        # Get doctor's schedule
+        doctor_schedules = schedule_repo.get_doctor_schedules(doctor.id)
+        
+        # Get already booked appointments
+        existing_appointments = appt_repo.get_appointments_by_doctor_in_range(
+            doctor_id=doctor.id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            status_filter=[AppointmentStatus.CONFIRMED, AppointmentStatus.REQUESTED]
+        )
+        
+        # Generate available slots
+        available_slots = []
+        current_date = request.start_date
+        
+        while current_date <= request.end_date:
+            day_of_week = current_date.weekday()  # 0-6 for Monday-Sunday
+            
+            # Find schedule for this day
+            day_schedules = [s for s in doctor_schedules if s.day_of_week == day_of_week and s.is_available]
+            
+            for schedule in day_schedules:
+                # Get the start and end times for this date
+                schedule_start = datetime.combine(current_date, schedule.start_time.time())
+                schedule_end = datetime.combine(current_date, schedule.end_time.time())
                 
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+                # Generate 30-minute slots
+                current_slot_start = schedule_start
+                while current_slot_start + timedelta(minutes=30) <= schedule_end:
+                    slot_end = current_slot_start + timedelta(minutes=30)
+                    
+                    # Check if slot overlaps with any existing appointment
+                    is_available = True
+                    for appt in existing_appointments:
+                        appt_end = appt.date_time + timedelta(minutes=appt.duration_minutes)
+                        if (current_slot_start < appt_end and slot_end > appt.date_time):
+                            is_available = False
+                            break
+                    
+                    if is_available:
+                        available_slots.append(
+                            CalSlot(
+                                start=current_slot_start,
+                                end=slot_end
+                            )
+                        )
+                    
+                    current_slot_start = slot_end
             
-        # In a real-world scenario, you would verify the password here
-        # For this example, we'll just assume the password is correct
+            current_date += timedelta(days=1)
         
-        # Create tokens
-        user_id = str(user.get("id"))
-        username = user.get("username")
-        email = user.get("email")
-        role = user.get("role", "USER")
+        # If no slots available, skip this doctor
+        if not available_slots:
+            continue
         
-        access_token_data = create_access_token(user_id, role)
-        refresh_token_data = create_refresh_token(user_id)
-        
-        access_token = access_token_data["access_token"]
-        refresh_token = refresh_token_data["refresh_token"]
-        access_token_expires_at = access_token_data["expires_at"]
-        refresh_token_expires_at = refresh_token_data["expires_at"]
-        
-        # Store session in Redis
-        session_created = create_user_session(
-            user_id=user_id,
-            username=username,
-            email=email,
-            role=role,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            access_token_expires_at=access_token_expires_at,
-            refresh_token_expires_at=refresh_token_expires_at
+        # Add to results
+        results.append(
+            DoctorAvailabilityResponse(
+                doctor_id=str(doctor.id),
+                doctor_name=doctor.full_name,
+                specialty=doctor.specialty,
+                location=doctor.location.name if doctor.location else "",
+                available_slots=available_slots
+            )
         )
-        
-        if not session_created:
-            raise HTTPException(status_code=500, detail="Failed to create user session")
-            
-        # Return the response
-        login_response = {
-            "user_id": user_id,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "access_token_expires_at": access_token_expires_at.isoformat(),
-            "refresh_token_expires_at": refresh_token_expires_at.isoformat(),
+    
+    return results
+
+@app.post("/api/book-appointment", response_model=AppointmentRead)
+async def book_appointment(
+    session_id: str = Body(...),
+    reason: str = Body(...),
+    doctor_id: str = Body(...),
+    slot_start: str = Body(...),  # ISO format
+    slot_end: str = Body(...),    # ISO format
+    notes: Optional[str] = Body(None),
+    db: Session = Depends(get_db)
+):
+    """Book an appointment using selected doctor and time slot"""
+    # Get session
+    session_repo = BookingSessionRepository(db)
+    session = session_repo.get_session_by_id(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get booking state from Redis
+    booking_state = redis_client.get_booking_state(session.user_id)
+    if not booking_state:
+        raise HTTPException(status_code=404, detail="Session state not found")
+    
+    # Get doctor details
+    doctor_repo = DoctorRepository(db)
+    doctor = doctor_repo.get_doctor_by_id(doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Get user
+    user_repo = UserRepository(db)
+    user = user_repo.get_user_by_id(session.user_id)
+    
+    # Parse slot times
+    start_time = datetime.fromisoformat(slot_start)
+    end_time = datetime.fromisoformat(slot_end)
+    
+    # Check if slot is still available
+    appt_repo = AppointmentRepository(db)
+    conflicting_appointments = appt_repo.check_appointment_conflicts(
+        doctor_id=int(doctor_id),
+        date_time=start_time,
+        duration_minutes=int((end_time - start_time).total_seconds() / 60)
+    )
+    
+    if conflicting_appointments:
+        raise HTTPException(status_code=409, detail="This time slot is no longer available")
+    
+    # Generate a confirmation ID
+    confirmation_id = f"BK-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Create appointment in our database
+    appt_repo = AppointmentRepository(db)
+    
+    appointment_data = AppointmentCreate(
+        user_id=int(session.user_id),
+        family_member_id=int(session.family_member_id) if session.family_member_id else None,
+        doctor_id=int(doctor_id),
+        location_id=doctor.location_id,
+        date_time=start_time,
+        duration_minutes=int((end_time - start_time).total_seconds() / 60),
+        reason=reason,
+        notes=notes,
+        confirmation_id=confirmation_id,
+        status=AppointmentStatus.CONFIRMED
+    )
+    
+    appointment = appt_repo.create_appointment(appointment_data)
+    
+    # Update booking session
+    session_repo.update_session(
+        session_id, 
+        {
+            "status": BookingSessionStatus.COMPLETED,
+            "booking_id": appointment.confirmation_id
         }
-        
-        # Include user details
-        user_data = {
-            "id": user.get("id"),
-            "username": username,
-            "email": email,
-            "role": role
+    )
+    
+    # Update Redis state
+    redis_client.update_booking_state(
+        session.user_id,
+        {
+            "selected_slot": {
+                "start": slot_start,
+                "end": slot_end
+            },
+            "confirmation_details": {
+                "confirmation_id": appointment.confirmation_id,
+                "doctor_name": doctor.full_name,
+                "date_time": slot_start,
+                "location": doctor.location.name if doctor.location else "",
+                "patient_name": booking_state.patient_name or user.full_name
+            }
         }
-        
-        return APIResponse(
-            status="success", 
-            data={"token": login_response, "user": user_data}
-        )
-        
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=e.response.status_code if hasattr(e, 'response') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
-
-@auth_router.post("/logout", response_model=APIResponse)
-async def logout(
-    logout_data: LogoutRequest = Body(...),
-    current_user: Dict = Depends(get_current_user)
-):
-    """
-    Logout a user and invalidate their session
-    """
-    try:
-        # Invalidate the session in Redis
-        session_invalidated = invalidate_session(logout_data.access_token)
-        
-        if not session_invalidated:
-            raise HTTPException(status_code=500, detail="Failed to invalidate user session")
-            
-        return APIResponse(
-            status="success", 
-            data={"message": "Successfully logged out"}
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
-
-@auth_router.post("/refresh-token", response_model=APIResponse)
-async def refresh_token(
-    refresh_token: str = Body(..., embed=True)
-):
-    """
-    Refresh an access token using a refresh token
-    """
-    try:
-        # Validate the refresh token
-        refresh_data = validate_refresh_token(refresh_token)
-        
-        if not refresh_data:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
-            
-        # Get user details from refresh token data
-        user_id = refresh_data.get("user_id")
-        old_access_token = refresh_data.get("access_token")
-        
-        # Invalidate the old session
-        invalidate_session(old_access_token)
-        
-        # Get user details from Cal.com
-        url = f"{CAL_API_BASE_URL}/users/{user_id}"
-        params = get_cal_api_params()
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        user = response.json()
-        
-        username = user.get("username")
-        email = user.get("email")
-        role = user.get("role", "USER")
-        
-        # Create new tokens
-        access_token_data = create_access_token(user_id, role)
-        refresh_token_data = create_refresh_token(user_id)
-        
-        access_token = access_token_data["access_token"]
-        new_refresh_token = refresh_token_data["refresh_token"]
-        access_token_expires_at = access_token_data["expires_at"]
-        refresh_token_expires_at = refresh_token_data["expires_at"]
-        
-        # Store new session in Redis
-        session_created = create_user_session(
-            user_id=user_id,
-            username=username,
-            email=email,
-            role=role,
-            access_token=access_token,
-            refresh_token=new_refresh_token,
-            access_token_expires_at=access_token_expires_at,
-            refresh_token_expires_at=refresh_token_expires_at
-        )
-        
-        if not session_created:
-            raise HTTPException(status_code=500, detail="Failed to create user session")
-            
-        # Return the response
-        token_response = {
-            "access_token": access_token,
-            "refresh_token": new_refresh_token,
-            "access_token_expires_at": access_token_expires_at.isoformat(),
-            "refresh_token_expires_at": refresh_token_expires_at.isoformat(),
-        }
-        
-        return APIResponse(
-            status="success", 
-            data=token_response
-        )
-        
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=e.response.status_code if hasattr(e, 'response') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error refreshing token: {str(e)}")
-
-@auth_router.get("/me", response_model=APIResponse)
-async def get_current_user_details(
-    current_user: Dict = Depends(get_current_user),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get details of the currently authenticated user
-    """
-    try:
-        user_id = current_user.get("user_id")
-        
-        # Get the full user details from Cal.com
-        url = f"{CAL_API_BASE_URL}/users/{user_id}"
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        user_data = response.json()
-        
-        return APIResponse(
-            status="success", 
-            data=user_data
-        )
-        
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=e.response.status_code if hasattr(e, 'response') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting user details: {str(e)}")
-
-@user_router.get("/users", response_model=APIResponse)
-async def get_users(params: Dict = Depends(get_cal_api_params)):
-    """
-    Get all users
-    """
-    url = CAL_API_USERS_URL
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        print(api_response)
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-# @user_router.post("/users", response_model=APIResponse)
-# async def create_user(
-#     user_data: UserCreateRequest = Body(...),
-#     params: Dict = Depends(get_cal_api_params)
-# ):
-#     """
-#     Create a new user
-#     """
-#     url = CAL_API_USERS_URL
-#     headers = {"Content-Type": "application/json"}
-#     try:
-#         response = requests.post(
-#             url, 
-#             json=user_data.dict(exclude_none=True), 
-#             params=params,
-#             headers=headers
-#         )
-#         response.raise_for_status()
-#         api_response = response.json() if response.content else {}
-#         return APIResponse(status="success", data=api_response, error={})
-#     except requests.RequestException as e:
-#         raise HTTPException(
-#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
-#             detail=f"Cal.com API error: {str(e)}"
-#         )
-
-# @user_router.get("/users/{user_id}", response_model=APIResponse)
-# async def get_user(
-#     user_id: str,
-#     params: Dict = Depends(get_cal_api_params)
-# ):
-#     """
-#     Get a specific user by ID
-#     """
-#     url = f"{CAL_API_USERS_URL}/{user_id}"
-#     try:
-#         response = requests.get(url, params=params)
-#         response.raise_for_status()
-#         api_response = response.json() if response.content else {}
-#         return APIResponse(status="success", data=api_response, error={})
-#     except requests.RequestException as e:
-#         raise HTTPException(
-#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
-#             detail=f"Cal.com API error: {str(e)}"
-#         )
-
-# @user_router.patch("/users/{user_id}", response_model=APIResponse)
-# async def update_user(
-#     user_id: str,
-#     user_data: UserUpdateRequest = Body(...),
-#     params: Dict = Depends(get_cal_api_params)
-# ):
-#     """
-#     Update an existing user
-#     """
-#     url = f"{CAL_API_USERS_URL}/{user_id}"
-#     headers = {"Content-Type": "application/json"}
-#     try:
-#         response = requests.patch(
-#             url, 
-#             json=user_data.dict(exclude_none=True), 
-#             params=params,
-#             headers=headers
-#         )
-#         response.raise_for_status()
-#         api_response = response.json() if response.content else {}
-#         return APIResponse(status="success", data=api_response, error={})
-#     except requests.RequestException as e:
-#         raise HTTPException(
-#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
-#             detail=f"Cal.com API error: {str(e)}"
-#         )
-
-# @user_router.delete("/users/{user_id}", response_model=APIResponse)
-# async def delete_user(
-#     user_id: str,
-#     params: Dict = Depends(get_cal_api_params)
-# ):
-#     """
-#     Delete a user by ID
-#     """
-#     url = f"{CAL_API_USERS_URL}/{user_id}"
-#     try:
-#         response = requests.delete(url, params=params)
-#         response.raise_for_status()
-#         api_response = response.json() if response.content else {}
-#         return APIResponse(status="success", data=api_response, error={})
-#     except requests.RequestException as e:
-#         raise HTTPException(
-#             status_code=response.status_code if hasattr(response, 'status_code') else 500,
-#             detail=f"Cal.com API error: {str(e)}"
-#         )
-
-# Attendees API endpoints
-@attendees_router.get("/attendees", response_model=APIResponse)
-async def get_attendees(params: Dict = Depends(get_cal_api_params)):
-    """
-    Get all attendees
-    """
-    url = CAL_API_ATTENDEES_URL
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@attendees_router.post("/attendees", response_model=APIResponse)
-async def create_attendee(
-    attendee_data: AttendeeCreateRequest = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new attendee
-    """
-    url = CAL_API_ATTENDEES_URL
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(
-            url, 
-            json=attendee_data.dict(exclude_none=True), 
-            params=params,
-            headers=headers
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@attendees_router.get("/attendees/{attendee_id}", response_model=APIResponse)
-async def get_attendee(
-    attendee_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific attendee by ID
-    """
-    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@attendees_router.patch("/attendees/{attendee_id}", response_model=APIResponse)
-async def update_attendee(
-    attendee_id: str,
-    attendee_data: AttendeeUpdateRequest = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Update an existing attendee
-    """
-    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.patch(
-            url, 
-            json=attendee_data.dict(exclude_none=True), 
-            params=params,
-            headers=headers
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@attendees_router.delete("/attendees/{attendee_id}", response_model=APIResponse)
-async def delete_attendee(
-    attendee_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Delete an attendee by ID
-    """
-    url = f"{CAL_API_ATTENDEES_URL}/{attendee_id}"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-
-@availabilities_router.post("/availabilities", response_model=APIResponse)
-async def create_availability(
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new availability
-    """
-    try:
-        response = requests.post(
-            CAL_API_AVAILABILITIES_URL,
-            json=payload,
-            params=params,
-            headers={"Content-Type": "application/json"}
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@availabilities_router.get("/availabilities/{availability_id}", response_model=APIResponse)
-async def get_availability(
-    availability_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific availability by ID
-    """
-    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@availabilities_router.patch("/availabilities/{availability_id}", response_model=APIResponse)
-async def update_availability(
-    availability_id: str,
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Update an availability
-    """
-    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
-    try:
-        response = requests.patch(
-            url,
-            json=payload,
-            params=params,
-            headers={"Content-Type": "application/json"}
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@availabilities_router.delete("/availabilities/{availability_id}", response_model=APIResponse)
-async def delete_availability(
-    availability_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Delete an availability by ID
-    """
-    url = f"{CAL_API_AVAILABILITIES_URL}/{availability_id}"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    )
     
-@bookings_router.post("/bookings", response_model=APIResponse)
-async def create_booking(
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new booking
-    """
-    try:
-        response = requests.post(
-            CAL_API_BOOKINGS_URL,
-            json=payload,
-            params=params,
-            headers={"Content-Type": "application/json"}
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    return appointment
 
-@bookings_router.get("/bookings/{booking_id}", response_model=APIResponse)
-async def get_booking(
-    booking_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific booking by ID
-    """
-    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+# --------------- LangChain Integration Routes ---------------
 
-@bookings_router.patch("/bookings/{booking_id}", response_model=APIResponse)
-async def update_booking(
-    booking_id: str,
-    payload: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Update a booking
-    """
-    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}"
-    try:
-        response = requests.patch(
-            url,
-            json=payload,
-            params=params,
-            headers={"Content-Type": "application/json"}
-        )
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@bookings_router.delete("/bookings/{booking_id}/cancel", response_model=APIResponse)
-async def cancel_booking(
-    booking_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Cancel a booking by ID
-    """
-    url = f"{CAL_API_BOOKINGS_URL}/{booking_id}/cancel"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@bookings_router.get("/slots", response_model=APIResponse)
-async def get_slots(
-    start_time: str = Query(..., description="Start time (ISO format, required)"),
-    end_time: str = Query(..., description="End time (ISO format, required)"),
-    event_type_id: Optional[int] = Query(None, description="Event Type ID"),
-    time_zone: Optional[str] = Query(None, description="Time zone"),
-    username_list: Optional[List[str]] = Query(None, description="List of usernames"),
-    event_type_slug: Optional[str] = Query(None, description="Event type slug"),
-    org_slug: Optional[str] = Query(None, description="Organization slug"),
-    is_team_event: Optional[bool] = Query(None, description="Is team event"),
-    params: Dict[str, Any] = Depends(get_cal_api_params),
-):
-    """
-    Get available bookable slots from Cal.com
-    """
-    url = CAL_API_SLOTS_URL
-
-    # Build query parameters
-    query_params = params.copy()
-    query_params.update({
-        "startTime": start_time,
-        "endTime": end_time,
-    })
-    if event_type_id is not None:
-        query_params["eventTypeId"] = event_type_id
-    if time_zone is not None:
-        query_params["timeZone"] = time_zone
-    if username_list is not None:
-        query_params["usernameList"] = username_list
-    if event_type_slug is not None:
-        query_params["eventTypeSlug"] = event_type_slug
-    if org_slug is not None:
-        query_params["orgSlug"] = org_slug
-    if is_team_event is not None:
-        query_params["isTeamEvent"] = is_team_event
-
-    try:
-        response = requests.get(url, params=query_params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat_message(request: ChatRequest, db: Session = Depends(get_db)):
+    """Process a user message in the conversational booking flow"""
+    session_id = request.session_id
     
-@event_router.get("/event-types", response_model=APIResponse)
-async def get_event_types(params: Dict = Depends(get_cal_api_params)):
-    """
-    Get all event types
-    """
-    url = "https://api.cal.com/v1/event-types"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@event_router.post("/event-types", response_model=APIResponse)
-async def create_event_type(
-    event_data: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new event type
-    """
-    url = "https://api.cal.com/v1/event-types"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(url, json=event_data, params=params, headers=headers)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@event_router.get("/event-types/{event_type_id}", response_model=APIResponse)
-async def get_event_type(
-    event_type_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific event type by ID
-    """
-    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@event_router.delete("/event-types/{event_type_id}", response_model=APIResponse)
-async def delete_event_type(
-    event_type_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Delete an event type by ID
-    """
-    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@event_router.patch("/event-types/{event_type_id}", response_model=APIResponse)
-async def update_event_type(
-    event_type_id: str,
-    event_data: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Update an event type by ID
-    """
-    url = f"https://api.cal.com/v1/event-types/{event_type_id}"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.patch(url, json=event_data, params=params, headers=headers)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    if not session_id:
+        # Create new session if one doesn't exist
+        session_id = str(uuid.uuid4())
+        # Initialize it with proper database and Redis entries
+        repo = BookingSessionRepository(db)
+        # Use a placeholder user ID (in real app, this would come from auth)
+        user_id = "123"  # Placeholder
+        repo.create_session(user_id, session_id)
+        redis_client.create_new_booking_session(user_id, session_id)
+    else:
+        # Get existing session
+        repo = BookingSessionRepository(db)
+        session = repo.get_session_by_id(session_id)
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
     
-@event_router.get("/teams/{team_id}/event-types", response_model=APIResponse)
-async def get_event_types_for_team(
-    team_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get event types for a specific team
-    """
-    url = f"https://api.cal.com/v1/teams/{team_id}/event-types"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    # Get booking state from Redis
+    session = repo.get_session_by_id(session_id)
+    booking_state = redis_client.get_booking_state(session.user_id)
     
-@schedule_router.get("/schedules", response_model=APIResponse)
-async def get_schedules(params: Dict = Depends(get_cal_api_params)):
-    """
-    Get all schedules
-    """
-    url = "https://api.cal.com/v1/schedules"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@schedule_router.post("/schedules", response_model=APIResponse)
-async def create_schedule(
-    schedule_data: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Create a new schedule
-    """
-    url = "https://api.cal.com/v1/schedules"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(url, json=schedule_data, params=params, headers=headers)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    # Get LangChain booking agent
+    agent = get_booking_agent(redis_client, None, db)  # Removed cal_api_client dependency
     
-@schedule_router.get("/schedules/{schedule_id}", response_model=APIResponse)
-async def get_schedule(
-    schedule_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Get a specific schedule by ID
-    """
-    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
-
-@schedule_router.delete("/schedules/{schedule_id}", response_model=APIResponse)
-async def delete_schedule(
-    schedule_id: str,
-    params: Dict = Depends(get_cal_api_params)
-):
-    """
-    Delete a schedule by ID
-    """
-    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
-    try:
-        response = requests.delete(url, params=params)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    # Process message
+    response = agent.process_message(request.message, booking_state)
     
-@schedule_router.patch("/schedules/{schedule_id}", response_model=APIResponse)
-async def update_schedule(
-    schedule_id: str,
-    schedule_data: Dict = Body(...),
-    params: Dict = Depends(get_cal_api_params)
+    # Update session in database if state changed
+    if booking_state != response.booking_state:
+        updates = response.booking_state.model_dump()
+        # Remove any fields that shouldn't be stored in DB
+        for field in ["available_slots_raw", "presented_slots_text", "last_bot_message"]:
+            if field in updates:
+                updates.pop(field)
+        repo.update_session(session_id, updates)
+    
+    return response
+
+# --------------- Form Data Routes ---------------
+
+@app.post("/api/update-booking-form/{session_id}")
+async def update_booking_form(
+    session_id: str,
+    form_data: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
 ):
-    """
-    Update a schedule by ID
-    """
-    url = f"https://api.cal.com/v1/schedules/{schedule_id}"
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.patch(url, json=schedule_data, params=params, headers=headers)
-        response.raise_for_status()
-        api_response = response.json() if response.content else {}
-        return APIResponse(status="success", data=api_response, error={})
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=response.status_code if hasattr(response, 'status_code') else 500,
-            detail=f"Cal.com API error: {str(e)}"
-        )
+    """Save partial booking form data to Redis session"""
+    # Get session
+    repo = BookingSessionRepository(db)
+    session = repo.get_session_by_id(session_id)
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Update Redis state
+    redis_client.update_booking_state(session.user_id, form_data)
+    
+    # Update session in database for fields that match the model
+    valid_fields = [
+        "patient_name", "patient_dob", "is_self_booking", "family_member_id",
+        "reason", "location_preference", "specialty_preference", "doctor_preference"
+    ]
+    
+    db_updates = {k: v for k, v in form_data.items() if k in valid_fields}
+    if db_updates:
+        repo.update_session(session_id, db_updates)
+    
+    return {"message": "Form data updated successfully", "session_id": session_id}
 
+@app.post("/api/validate-patient-info")
+async def validate_patient_info(
+    patient_info: Dict[str, Any] = Body(...),
+):
+    """Validate patient information"""
+    # Implement validation logic here
+    errors = {}
+    
+    # Required fields
+    required_fields = ["name", "dob"]
+    for field in required_fields:
+        if field not in patient_info or not patient_info[field]:
+            errors[field] = f"{field} is required"
+    
+    # Date format validation for DOB
+    if "dob" in patient_info and patient_info["dob"]:
+        try:
+            datetime.fromisoformat(patient_info["dob"])
+        except ValueError:
+            errors["dob"] = "Invalid date format. Use YYYY-MM-DD"
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors
+    }
 
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
-app.include_router(user_router, prefix="/user", tags=["User"])
-app.include_router(availabilities_router, prefix="/availabilities", tags=["Availability"])
-app.include_router(attendees_router, prefix="/attendees", tags=["Attendee"])
-app.include_router(bookings_router, prefix="/bookings", tags=["Booking"])
-app.include_router(event_router, prefix="/event-types", tags=["Event"])
-app.include_router(schedule_router, prefix="/schedules", tags=["Schedule"])
-app.include_router(webhooks_router, prefix="/webhooks", tags=["Webhook"])
+# --------------- Helper method for DoctorScheduleRepository ---------------
 
-# Run with: uvicorn main:app --reload
+# Start the app
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
