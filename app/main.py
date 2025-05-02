@@ -548,7 +548,7 @@ async def chat_message(
     booking_state = redis_client.get_booking_state(str(session.user_id))
     
     # Get LangChain booking agent
-    agent = get_booking_agent(redis_client, None, db)  # Removed cal_api_client dependency
+    agent = get_booking_agent(redis_client, db)
     
     # Process message
     response = agent.process_message(request.message, booking_state)
