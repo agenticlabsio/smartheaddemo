@@ -515,7 +515,8 @@ class BookingState(BaseModel):
     doctor_preference: Optional[str] = None
     available_slots_raw: Optional[List[Dict[str, Any]]] = None
     presented_slots_text: Optional[str] = None
-    selected_slot: Optional[Dict[str, Any]] = None
+    selected_slot: Optional[Union[str, Dict[str, Any]]] = None
+    # selected_slot: Optional[Dict[str, Any]] = None
     confirmation_details: Optional[Dict[str, Any]] = None
     last_bot_message: Optional[str] = None
     error_message: Optional[str] = None

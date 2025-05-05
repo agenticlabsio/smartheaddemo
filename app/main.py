@@ -22,7 +22,7 @@ from repositories import (
     LocationRepository, SpecialtyRepository, AppointmentRepository,
     BookingSessionRepository, DoctorScheduleRepository
 )
-from utils.langchain_integration import get_booking_agent
+from langchain_integration import get_booking_agent
 from auth import router as auth_router, get_current_active_user
 
 # Load environment variables

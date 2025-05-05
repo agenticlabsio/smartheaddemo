@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
+from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.graph import MessagesState
 from langchain_openai import ChatOpenAI
@@ -21,6 +22,25 @@ from repositories import (
     SpecialtyRepository, LocationRepository, BookingSessionRepository
 )
 from redis_client import BookingStateRedisClient
+
+system_prompt = """
+You are an AI assistant for a medical booking system. Help the user book an appointment with a doctor.
+The booking process requires collecting information about:
+1. The patient (self or family member)
+2. Medical specialty needed
+3. Preferred location
+4. Reason for visit
+5. Preferred doctor (if any)
+
+Use the available tools to gather information and update the booking state.
+Always be helpful, concise, and guide the user through the booking process step by step.
+"""
+
+# Create a proper ChatPromptTemplate from the system prompt
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", system_prompt),
+    ("human", "{input}"),
+])
 
 
 # Add conversation history methods to the redis client (assume these are implemented)
@@ -65,6 +85,7 @@ class BookingGraphState(TypedDict):
     messages: list  # The conversation messages
     booking_state: dict  # The current booking state
     session_id: str  # The session ID
+    iteration_count: int  # Track iterations to prevent infinite loops
 
 
 class BookingAgent:
@@ -154,7 +175,7 @@ class BookingAgent:
             
             Args:
                 query_string: JSON string with filters for specialty, location, doctor_name
-                          Format: {"specialty": "...", "location": "...", "doctor_name": "..."}
+                        Format: {"specialty": "...", "location": "...", "doctor_name": "..."}
             """
             try:
                 # Parse query parameters
@@ -205,16 +226,30 @@ class BookingAgent:
             
             Args:
                 update_string: JSON string with fields to update
-                          Format: {"user_id": "...", "field1": "value1", "field2": "value2"}
+                        Format: {"user_id": "...", "field1": "value1", "field2": "value2"}
             """
             try:
-                # Parse update parameters
-                updates = json.loads(update_string)
+                # Parse update parameters - handle both string and dict inputs
+                if isinstance(update_string, dict):
+                    updates = update_string
+                else:
+                    updates = json.loads(update_string)
                 
                 # Extract user_id
                 user_id = updates.pop("user_id", None)
                 if not user_id:
                     return "Error: user_id is required"
+                
+                # Handle selected_slot if it's a string instead of a dict
+                if "selected_slot" in updates and isinstance(updates["selected_slot"], str):
+                    # Convert to a properly formatted slot object
+                    selected_time = updates["selected_slot"]
+                    # Create a placeholder slot object
+                    updates["selected_slot"] = {
+                        "description": selected_time,
+                        "start": None,
+                        "end": None
+                    }
                 
                 # Update Redis state
                 updated_state = self.redis_client.update_booking_state(user_id, updates)
@@ -226,61 +261,37 @@ class BookingAgent:
             except Exception as e:
                 return f"Error updating booking state: {str(e)}"
         
-        # Collect all tools
-        self.tools = [
-            get_patient_info,
-            get_specialties,
-            get_locations,
-            get_doctor_availability,
-            update_booking_state
-        ]
+        # Define the tools list
+        tools = [get_patient_info, get_specialties, get_locations, get_doctor_availability, update_booking_state]
         
-        # Define the system message
+        # Create the tool node
+        self.tool_node = ToolNode(tools)
+        
+        # Create the agent with the defined tools
         system_prompt = """
-        You are a helpful medical appointment booking assistant. You help users book appointments with doctors.
-        Your goal is to collect all necessary information to make a booking:
-        1. Who is the appointment for (the user or family member)
-        2. What specialty they need to see
-        3. Preferred location (if any)
-        4. Preferred doctor (if any)
-        5. Reason for visit
-        6. Preferred date/time
+        You are an AI assistant for a medical booking system. Help the user book an appointment with a doctor.
+        The booking process requires collecting information about:
+        1. The patient (self or family member)
+        2. Medical specialty needed
+        3. Preferred location
+        4. Reason for visit
+        5. Preferred doctor (if any)
         
-        Be friendly and conversational, but focused on gathering the required information.
-        Use tools when you need to check information or update the booking state.
-        Maintain a helpful, professional tone throughout the conversation.
+        Use the available tools to gather information and update the booking state.
+        Always be helpful, concise, and guide the user through the booking process step by step.
         """
         
-        # Create a ReAct agent using langgraph's prebuilt function
-        self.agent_runnable = create_react_agent(self.llm, self.tools, prompt=system_prompt)
-        
-        # Create tool node for the graph
-        self.tool_node = ToolNode(self.tools)
-        
-        # Define the function to run the agent
-        def agent(state: BookingGraphState):
-            """Agent to generate the next response or decide to use tools"""
-            # Extract the messages and booking state
-            messages = state["messages"]
-            booking_state = state.get("booking_state", {})
-            
-            # Add booking state information to the human message if it exists
-            if booking_state and messages and isinstance(messages[-1], HumanMessage):
-                last_message = messages[-1]
-                updated_content = f"Current booking state:\n{json.dumps(booking_state, indent=2)}\n\n{last_message.content}"
-                modified_messages = messages[:-1] + [HumanMessage(content=updated_content)]
-            else:
-                modified_messages = messages
-            
-            # Invoke the agent with the messages
-            agent_response = self.agent_runnable.invoke({"messages": modified_messages})
-            
-            # Return the updated messages and maintained state
-            return {
-                "messages": agent_response["messages"], 
-                "booking_state": booking_state, 
-                "session_id": state.get("session_id")
-            }
+        # Create the agent using the langgraph create_react_agent
+        # agent = create_react_agent(
+        #     self.llm,
+        #     tools,
+        #     prompt=prompt_template
+        # )
+
+        agent = create_react_agent(
+            self.llm,
+            tools,
+        )
         
         # Define state handler to determine the next step
         def should_continue(state: BookingGraphState) -> Literal["agent", "action", "end"]:
@@ -290,19 +301,42 @@ class BookingAgent:
             if not messages:
                 return "agent"
             
+            # Check iteration count to prevent infinite loops
+            iteration_count = state.get("iteration_count", 0)
+            if iteration_count >= 20:  # Set a lower limit than the system maximum
+                return "end"
+            
             last_message = messages[-1]
             
             # If the last message has tool calls, use the action node
             if isinstance(last_message, AIMessage) and last_message.tool_calls:
                 return "action"
             
+            # If the last message is a human message, we need the agent to respond
+            if isinstance(last_message, HumanMessage):
+                return "agent"
+            
             # Check if booking is complete
             booking_state = state.get("booking_state", {})
-            required_fields = ["patient_id", "specialty_id", "doctor_id", "appointment_reason", "preferred_date"]
+            
+            # Define key fields that indicate a complete booking
+            # Note: Updated to match the actual fields in your BookingState model
+            required_fields = ["patient_name", "specialty_preference", "doctor_preference", "reason"]
+            
             if all(field in booking_state and booking_state[field] for field in required_fields):
-                # Booking is complete, so we can end
+                # Booking has essential info, so we can end
                 return "end"
             
+            # Check for consecutive AI messages which might indicate a loop
+            if len(messages) >= 3:
+                if all(isinstance(msg, AIMessage) for msg in messages[-3:]):
+                    # Three consecutive AI messages likely means we're in a loop
+                    return "end"
+            
+            # If the agent has responded and there's no tool call, continue with agent
+            if isinstance(last_message, AIMessage) and not last_message.tool_calls:
+                return "agent"
+                
             # Otherwise, continue with the agent
             return "agent"
         
@@ -336,7 +370,7 @@ class BookingAgent:
         # Set the entry point
         self.workflow.set_entry_point("agent")
         
-        # Compile the graph
+        # Compile the graph with explicit recursion limit
         self.app = self.workflow.compile()
     
     def process_message(self, message: str, booking_state: BookingState) -> ChatResponse:
@@ -364,7 +398,8 @@ class BookingAgent:
             state = {
                 "messages": current_messages,
                 "booking_state": booking_state_dict,
-                "session_id": booking_state.session_id
+                "session_id": booking_state.session_id,
+                "iteration_count": 0  # Initialize iteration count
             }
             
             # Run the graph
@@ -406,13 +441,19 @@ class BookingAgent:
                                     for tool_call in messages[tool_call_index].tool_calls:
                                         if tool_call.get("name") == "update_booking_state":
                                             # Extract the update data
-                                            update_data = json.loads(tool_call.get("args", "{}"))
+                                            update_args = tool_call.get("args", "{}")
+                                            # Make sure update_args is a string before parsing
+                                            if isinstance(update_args, dict):
+                                                update_data = update_args
+                                            else:
+                                                update_data = json.loads(update_args)
                                             # Remove user_id as it's not part of the booking state model
                                             if "user_id" in update_data:
                                                 del update_data["user_id"]
                                             # Update the state dict
                                             updated_state_dict.update(update_data)
-                        except (json.JSONDecodeError, IndexError, KeyError):
+                        except (json.JSONDecodeError, IndexError, KeyError) as e:
+                            print(f"Error processing tool message: {str(e)}")
                             pass
             
             # If there were updates, update the Redis state
