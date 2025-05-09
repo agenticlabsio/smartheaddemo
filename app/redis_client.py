@@ -3,6 +3,7 @@ import redis
 from typing import Optional, Dict, Any, TypeVar, Type, Generic, Union
 from datetime import datetime, timedelta
 from pydantic import BaseModel
+import time
 
 from models import BookingState
 
@@ -184,64 +185,225 @@ class RedisClient(Generic[T]):
 
 
 # Create a specialized class for BookingState
-class BookingStateRedisClient(RedisClient[BookingState]):
-    """Redis client specialized for BookingState model"""
-    
-    def __init__(self, redis_url: str, ttl_seconds: int = 3600):
-        super().__init__(redis_url, prefix="session:chatbook:", ttl_seconds=ttl_seconds)
-    
-    def get_booking_state(self, user_id: str) -> Optional[BookingState]:
+class BookingStateRedisClient:
+    def __init__(self, redis_url, ttl_seconds=3600):
         """
-        Get booking state for a user
+        Initialize Redis client for booking state management
         
         Args:
-            user_id: User ID
-            
-        Returns:
-            BookingState or None if not found
+            redis_url: Redis connection URL
+            ttl_seconds: Time-to-live for session data in seconds
         """
-        return self.get_session(user_id, BookingState)
-    
-    def set_booking_state(self, user_id: str, booking_state: BookingState) -> bool:
-        """
-        Set booking state for a user
+        import redis
+        from models import BookingState
         
-        Args:
-            user_id: User ID
-            booking_state: BookingState model
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        return self.set_session(user_id, booking_state)
+        self.redis = redis.from_url(redis_url)
+        self.ttl_seconds = ttl_seconds
+        self.BookingState = BookingState
     
-    def update_booking_state(self, user_id: str, updates: Dict[str, Any]) -> Optional[BookingState]:
-        """
-        Update booking state for a user
-        
-        Args:
-            user_id: User ID
-            updates: Dictionary of fields to update
-            
-        Returns:
-            Updated BookingState or None if failed
-        """
-        return self.update_session(user_id, updates, BookingState)
+    def _get_session_key(self, user_id):
+        """Generate Redis key for user session"""
+        return f"booking:state:{user_id}"
     
-    def create_new_booking_session(self, user_id: str, session_id: str) -> BookingState:
+    def _get_conversation_key(self, user_id):
+        """Generate Redis key for user conversation history"""
+        return f"booking:conversation:{user_id}"
+    
+    def create_new_booking_session(self, user_id, session_id):
         """
-        Create a new booking session state
+        Create a new booking session in Redis
         
         Args:
             user_id: User ID
             session_id: Session ID
             
         Returns:
-            New BookingState
+            BookingState object
         """
-        new_state = BookingState(
+        state = self.BookingState(
             user_id=user_id,
-            session_id=session_id,
+            session_id=session_id
         )
-        self.set_booking_state(user_id, new_state)
-        return new_state
+        
+        # Store in Redis
+        self.redis.set(
+            self._get_session_key(user_id),
+            state.model_dump_json(),
+            ex=self.ttl_seconds
+        )
+        
+        # Initialize empty conversation history
+        self.redis.delete(self._get_conversation_key(user_id))
+        
+        return state
+    
+    def get_booking_state(self, user_id):
+        """
+        Get booking state from Redis
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            BookingState object or None if not found
+        """
+        import json
+        
+        data = self.redis.get(self._get_session_key(user_id))
+        if not data:
+            return None
+        
+        return self.BookingState.model_validate(json.loads(data))
+    
+    def update_booking_state(self, user_id, updates):
+        """
+        Update booking state in Redis
+        
+        Args:
+            user_id: User ID
+            updates: Dict of fields to update
+            
+        Returns:
+            Updated BookingState or None if session not found
+        """
+        import json
+        
+        # Get current state
+        current_state = self.get_booking_state(user_id)
+        if not current_state:
+            return None
+        
+        # Update state
+        updated_state = current_state.model_copy(update=updates)
+        
+        # Store back in Redis
+        self.redis.set(
+            self._get_session_key(user_id),
+            updated_state.model_dump_json(),
+            ex=self.ttl_seconds
+        )
+        
+        return updated_state
+    
+    def get_session_ttl(self, user_id):
+        """
+        Get remaining TTL for a session
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            TTL in seconds or None if not found
+        """
+        ttl = self.redis.ttl(self._get_session_key(user_id))
+        return ttl if ttl > 0 else None
+    
+    def delete_session(self, user_id):
+        """
+        Delete a session from Redis
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            True if deleted, False if not found
+        """
+        # Delete state and conversation history
+        state_deleted = self.redis.delete(self._get_session_key(user_id)) > 0
+        self.redis.delete(self._get_conversation_key(user_id))
+        
+        return state_deleted
+    
+    # Implementing the missing method
+    def get_conversation_history(self, user_id):
+        """
+        Get conversation history for a user
+        
+        Args:
+            user_id: User ID
+            
+        Returns:
+            List of conversation messages or empty list if none found
+        """
+        import json
+        
+        # Get all conversation messages from Redis list
+        messages_raw = self.redis.lrange(self._get_conversation_key(user_id), 0, -1)
+        
+        # Parse JSON messages
+        messages = []
+        for msg_raw in messages_raw:
+            try:
+                msg = json.loads(msg_raw)
+                messages.append(msg)
+            except json.JSONDecodeError:
+                # Skip corrupted messages
+                continue
+        
+        return messages
+    
+    def add_conversation_message(self, user_id, role, content):
+        """
+        Add a message to the conversation history
+        
+        Args:
+            user_id: User ID
+            role: Message role ('user' or 'assistant')
+            content: Message content
+            
+        Returns:
+            None
+        """
+        import json
+        
+        # Create message object
+        message = {
+            "role": role,
+            "content": content,
+            "timestamp": time.time()
+        }
+        
+        # Add to Redis list
+        self.redis.rpush(
+            self._get_conversation_key(user_id),
+            json.dumps(message)
+        )
+        
+        # Ensure TTL is set
+        self.redis.expire(self._get_conversation_key(user_id), self.ttl_seconds)
+
+    def save_conversation_history(self, user_id, conversation_history):
+        """
+        Save entire conversation history for a user
+        
+        Args:
+            user_id: User ID
+            conversation_history: List of message dictionaries with 'role' and 'content' keys
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        import json
+        
+        try:
+            # Delete existing conversation history
+            self.redis.delete(self._get_conversation_key(user_id))
+            
+            # Add each message to the conversation history
+            for message in conversation_history:
+                # Ensure timestamp exists
+                if 'timestamp' not in message:
+                    message['timestamp'] = time.time()
+                    
+                # Add to Redis list
+                self.redis.rpush(
+                    self._get_conversation_key(user_id),
+                    json.dumps(message)
+                )
+            
+            # Ensure TTL is set
+            self.redis.expire(self._get_conversation_key(user_id), self.ttl_seconds)
+            return True
+        except Exception as e:
+            print(f"Error saving conversation history: {e}")
+            return False

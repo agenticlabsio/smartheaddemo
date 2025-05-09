@@ -24,6 +24,7 @@ from repositories import (
 )
 from langchain_integration import get_booking_agent
 from auth import router as auth_router, get_current_active_user
+from observability import trace_endpoint, log_chat_interaction, get_langfuse_callback_handler
 
 # Load environment variables
 load_dotenv()
@@ -55,7 +56,9 @@ redis_client = BookingStateRedisClient(
 # --------------- Session Management Routes ---------------
 
 @app.post("/api/session")
+@trace_endpoint(name="create_session", tags=["session", "booking"])
 async def create_session(
+    request: Request,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -73,7 +76,9 @@ async def create_session(
     return {"session_id": session_id, "user_id": user_id}
 
 @app.get("/api/session/{session_id}")
+@trace_endpoint(name="get_session", tags=["session", "booking"])
 async def get_session(
+    request: Request,
     session_id: str, 
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -103,7 +108,9 @@ async def get_session(
     }
 
 @app.delete("/api/session/{session_id}")
+@trace_endpoint(name="delete_session", tags=["session", "booking"])
 async def delete_session(
+    request: Request,
     session_id: str, 
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -128,7 +135,9 @@ async def delete_session(
     return {"message": "Session deleted successfully"}
 
 @app.get("/api/session-status/{session_id}")
+@trace_endpoint(name="check_session_status", tags=["session", "booking"])
 async def check_session_status(
+    request: Request,
     session_id: str, 
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
@@ -161,7 +170,9 @@ async def check_session_status(
 # --------------- User Context Routes ---------------
 
 @app.get("/api/user-context", response_model=UserContext)
+@trace_endpoint(name="get_user_context", tags=["user", "context"])
 async def get_user_context(
+    request: Request,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -182,7 +193,9 @@ async def get_user_context(
 # --------------- Patient Selection Routes ---------------
 
 @app.get("/api/patient-options", response_model=List[PatientOption])
+@trace_endpoint(name="get_patient_options", tags=["patient", "options"])
 async def get_patient_options(
+    request: Request,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -215,7 +228,9 @@ async def get_patient_options(
     return options
 
 @app.post("/api/select-patient/{session_id}")
+@trace_endpoint(name="select_patient", tags=["patient", "booking"])
 async def select_patient(
+    request: Request,
     session_id: str, 
     is_self: bool = Body(...),
     family_member_id: Optional[str] = Body(None),
@@ -273,7 +288,9 @@ async def select_patient(
 # --------------- Appointment Logic Routes ---------------
 
 @app.get("/api/specialties", response_model=List[Dict[str, str]])
+@trace_endpoint(name="get_specialties", tags=["specialties", "options"])
 async def get_specialties(
+    request: Request,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -284,7 +301,9 @@ async def get_specialties(
     return [{"id": str(s.id), "name": s.name, "description": s.description or ""} for s in specialties]
 
 @app.get("/api/locations", response_model=List[Dict[str, str]])
+@trace_endpoint(name="get_locations", tags=["locations", "options"])
 async def get_locations(
+    request: Request,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -295,7 +314,9 @@ async def get_locations(
     return [{"id": str(l.id), "name": l.name, "address": l.address} for l in locations]
 
 @app.get("/api/doctors", response_model=List[Dict[str, Any]])
+@trace_endpoint(name="get_doctors", tags=["doctors", "options"])
 async def get_doctors(
+    request: Request,
     specialty: Optional[str] = None,
     location: Optional[str] = None,
     current_user: UserRead = Depends(get_current_active_user),
@@ -316,24 +337,26 @@ async def get_doctors(
     ]
 
 @app.post("/api/doctor-availability", response_model=List[DoctorAvailabilityResponse])
+@trace_endpoint(name="get_doctor_availability", tags=["doctors", "availability"])
 async def get_doctor_availability(
-    request: DoctorAvailabilityRequest,
+    request: Request,
+    request_data: DoctorAvailabilityRequest,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get doctor availability based on filters"""
     # Set default date range if not provided
-    if not request.start_date:
-        request.start_date = date.today()
-    if not request.end_date:
-        request.end_date = date.today() + timedelta(days=14)
+    if not request_data.start_date:
+        request_data.start_date = date.today()
+    if not request_data.end_date:
+        request_data.end_date = date.today() + timedelta(days=14)
     
     # Get doctors matching the criteria
     doctor_repo = DoctorRepository(db)
     doctors = doctor_repo.get_doctors(
-        specialty=request.specialty,
-        location=request.location,
-        doctor_name=request.doctor_name
+        specialty=request_data.specialty,
+        location=request_data.location,
+        doctor_name=request_data.doctor_name
     )
     
     if not doctors:
@@ -351,16 +374,16 @@ async def get_doctor_availability(
         # Get already booked appointments
         existing_appointments = appt_repo.get_appointments_by_doctor_in_range(
             doctor_id=doctor.id,
-            start_date=request.start_date,
-            end_date=request.end_date,
+            start_date=request_data.start_date,
+            end_date=request_data.end_date,
             status_filter=[AppointmentStatus.CONFIRMED, AppointmentStatus.REQUESTED]
         )
         
         # Generate available slots
         available_slots = []
-        current_date = request.start_date
+        current_date = request_data.start_date
         
-        while current_date <= request.end_date:
+        while current_date <= request_data.end_date:
             day_of_week = current_date.weekday()  # 0-6 for Monday-Sunday
             
             # Find schedule for this day
@@ -414,7 +437,9 @@ async def get_doctor_availability(
     return results
 
 @app.post("/api/book-appointment", response_model=AppointmentRead)
+@trace_endpoint(name="book_appointment", tags=["appointment", "booking"])
 async def book_appointment(
+    request: Request,
     session_id: str = Body(...),
     reason: str = Body(...),
     doctor_id: str = Body(...),
@@ -515,20 +540,22 @@ async def book_appointment(
 # --------------- LangChain Integration Routes ---------------
 
 @app.post("/api/chat", response_model=ChatResponse)
+@trace_endpoint(name="chat_message", tags=["chat", "booking"])
 async def chat_message(
-    request: ChatRequest,
+    request: Request,
+    request_data: ChatRequest,
     current_user: UserRead = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Process a user message in the conversational booking flow"""
-    session_id = request.session_id
+    session_id = request_data.session_id
+    user_id = str(current_user.id)
     
     if not session_id:
         # Create new session if one doesn't exist
         session_id = str(uuid.uuid4())
         # Initialize it with proper database and Redis entries
         repo = BookingSessionRepository(db)
-        user_id = str(current_user.id)
         repo.create_session(user_id, session_id)
         redis_client.create_new_booking_session(user_id, session_id)
     else:
@@ -545,29 +572,85 @@ async def chat_message(
     
     # Get booking state from Redis
     session = repo.get_session_by_id(session_id)
-    booking_state = redis_client.get_booking_state(str(session.user_id))
+    booking_state = redis_client.get_booking_state(user_id)
     
-    # Get LangChain booking agent
-    agent = get_booking_agent(redis_client, db)
+    # Store user message in conversation history
+    redis_client.add_conversation_message(user_id, "user", request_data.message)
     
-    # Process message
-    response = agent.process_message(request.message, booking_state)
+    # Create Langfuse callback handler for LangChain
+    langfuse_handler = get_langfuse_callback_handler(
+        session_id=session_id,
+        user_id=user_id,
+        trace_id=f"chat-{session_id}",
+        tags=["chat", "booking"]
+    )
     
-    # Update session in database if state changed
-    if booking_state != response.booking_state:
-        updates = response.booking_state.model_dump()
-        # Remove any fields that shouldn't be stored in DB
-        for field in ["available_slots_raw", "presented_slots_text", "last_bot_message"]:
-            if field in updates:
-                updates.pop(field)
-        repo.update_session(session_id, updates)
+    try:
+        # Get LangChain booking agent
+        agent = get_booking_agent(redis_client, db)
+        
+        # Process message
+        response = agent.process_message(request_data.message, booking_state)
+        
+        # Store assistant response in conversation history
+        redis_client.add_conversation_message(user_id, "assistant", response.message)
+        
+        # Log the chat interaction in Langfuse
+        metadata = {
+            "booking_state": response.booking_state.model_dump() if response.booking_state else {},
+        }
+        
+        # Only include actions if the attribute exists
+        if hasattr(response, 'actions') and response.actions:
+            metadata["actions"] = [action.model_dump() for action in response.actions]
+        
+        log_chat_interaction(
+            session_id=session_id,
+            user_id=user_id,
+            user_message=request_data.message,
+            bot_response=response.message,
+            metadata=metadata,
+            tags=["chat", "booking"]
+        )
+        
+        # Update session in database if state changed
+        if booking_state != response.booking_state:
+            updates = response.booking_state.model_dump()
+            # Remove any fields that shouldn't be stored in DB
+            for field in ["available_slots_raw", "presented_slots_text", "last_bot_message"]:
+                if field in updates:
+                    updates.pop(field)
+            repo.update_session(session_id, updates)
+        
+        return response
     
-    return response
+    except Exception as e:
+        # Create error response
+        error_message = f"I'm sorry, I encountered an error: '{str(e)}'"
+        error_response = ChatResponse(
+            message=error_message,
+            session_id=session_id,
+            booking_state=booking_state
+        )
+        
+        # Log the error
+        log_chat_interaction(
+            session_id=session_id,
+            user_id=user_id,
+            user_message=request_data.message,
+            bot_response=error_message,
+            metadata={"error": str(e)},
+            tags=["chat", "booking", "error"]
+        )
+        
+        return error_response
 
 # --------------- Form Data Routes ---------------
 
 @app.post("/api/update-booking-form/{session_id}")
+@trace_endpoint(name="update_booking_form", tags=["form", "booking"])
 async def update_booking_form(
+    request: Request,
     session_id: str,
     form_data: Dict[str, Any] = Body(...),
     current_user: UserRead = Depends(get_current_active_user),
@@ -601,7 +684,9 @@ async def update_booking_form(
     return {"message": "Form data updated successfully", "session_id": session_id}
 
 @app.post("/api/validate-patient-info")
+@trace_endpoint(name="validate_patient_info", tags=["validation", "patient"])
 async def validate_patient_info(
+    request: Request,
     patient_info: Dict[str, Any] = Body(...),
     current_user: UserRead = Depends(get_current_active_user)
 ):

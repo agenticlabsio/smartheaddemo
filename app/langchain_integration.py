@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
-from langchain_core.prompts import ChatPromptTemplate
 from langgraph.prebuilt.tool_node import ToolNode
 from langgraph.graph import MessagesState
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+from langchain_core.prompts import ChatPromptTemplate
 
 from models import (
     BookingState, ChatResponse, PatientOption, DoctorAvailabilityResponse,
@@ -22,6 +22,9 @@ from repositories import (
     SpecialtyRepository, LocationRepository, BookingSessionRepository
 )
 from redis_client import BookingStateRedisClient
+
+# Import Langfuse
+from observability import get_langfuse_callback_handler, log_chat_interaction
 
 system_prompt = """
 You are an AI assistant for a medical booking system. Help the user book an appointment with a doctor.
@@ -41,43 +44,6 @@ prompt_template = ChatPromptTemplate.from_messages([
     ("system", system_prompt),
     ("human", "{input}"),
 ])
-
-
-# Add conversation history methods to the redis client (assume these are implemented)
-def get_conversation_history(self, session_id: str) -> List:
-    """Get conversation history from Redis"""
-    try:
-        history_json = self.redis.get(f"conversation:{session_id}")
-        if history_json:
-            return json.loads(history_json)
-        return []
-    except Exception:
-        return []
-
-def save_conversation_history(self, session_id: str, messages: List) -> bool:
-    """Save conversation history to Redis"""
-    try:
-        # Serialize messages (need to convert to dict first)
-        serializable_messages = []
-        for msg in messages:
-            if hasattr(msg, "dict"):
-                serializable_messages.append(msg.dict())
-            else:
-                # Fallback for basic serialization
-                msg_type = msg.__class__.__name__
-                serializable_messages.append({
-                    "type": msg_type,
-                    "content": msg.content,
-                })
-        
-        self.redis.set(f"conversation:{session_id}", json.dumps(serializable_messages))
-        return True
-    except Exception:
-        return False
-
-# Add methods to BookingStateRedisClient
-BookingStateRedisClient.get_conversation_history = get_conversation_history
-BookingStateRedisClient.save_conversation_history = save_conversation_history
 
 
 # Define our state for the graph
@@ -267,27 +233,7 @@ class BookingAgent:
         # Create the tool node
         self.tool_node = ToolNode(tools)
         
-        # Create the agent with the defined tools
-        system_prompt = """
-        You are an AI assistant for a medical booking system. Help the user book an appointment with a doctor.
-        The booking process requires collecting information about:
-        1. The patient (self or family member)
-        2. Medical specialty needed
-        3. Preferred location
-        4. Reason for visit
-        5. Preferred doctor (if any)
-        
-        Use the available tools to gather information and update the booking state.
-        Always be helpful, concise, and guide the user through the booking process step by step.
-        """
-        
         # Create the agent using the langgraph create_react_agent
-        # agent = create_react_agent(
-        #     self.llm,
-        #     tools,
-        #     prompt=prompt_template
-        # )
-
         agent = create_react_agent(
             self.llm,
             tools,
@@ -320,7 +266,6 @@ class BookingAgent:
             booking_state = state.get("booking_state", {})
             
             # Define key fields that indicate a complete booking
-            # Note: Updated to match the actual fields in your BookingState model
             required_fields = ["patient_name", "specialty_preference", "doctor_preference", "reason"]
             
             if all(field in booking_state and booking_state[field] for field in required_fields):
@@ -385,6 +330,14 @@ class BookingAgent:
             ChatResponse with bot's response and updated booking state
         """
         try:
+            # Create Langfuse callback handler for this interaction
+            langfuse_callback = get_langfuse_callback_handler(
+                session_id=booking_state.session_id,
+                user_id=booking_state.user_id,
+                trace_id=f"booking-flow-{booking_state.session_id}",
+                tags=["booking-agent", "chat"]
+            )
+            
             # Convert BookingState to dict for easier manipulation
             booking_state_dict = booking_state.model_dump(exclude_unset=True)
             
@@ -402,8 +355,8 @@ class BookingAgent:
                 "iteration_count": 0  # Initialize iteration count
             }
             
-            # Run the graph
-            result = self.app.invoke(state)
+            # Run the graph with Langfuse callback
+            result = self.app.invoke(state, {"callbacks": [langfuse_callback]})
             
             # Extract the response
             messages = result["messages"]
@@ -469,14 +422,41 @@ class BookingAgent:
             else:
                 updated_booking_state = booking_state
             
+            # Log the interaction to Langfuse
+            log_chat_interaction(
+                session_id=booking_state.session_id,
+                user_id=booking_state.user_id,
+                user_message=message,
+                bot_response=ai_response,
+                metadata={
+                    "booking_state": updated_state_dict,
+                    "state_changed": updated_state_dict != booking_state_dict,
+                },
+                tags=["booking-flow"]
+            )
+            
             return ChatResponse(
                 message=ai_response,
                 booking_state=updated_booking_state,
                 session_id=booking_state.session_id
             )
         except Exception as e:
-            # Handle errors
+            # Handle errors and log to Langfuse
             error_message = f"I'm sorry, I encountered an error: {str(e)}"
+            
+            # Log error to Langfuse
+            log_chat_interaction(
+                session_id=booking_state.session_id,
+                user_id=booking_state.user_id,
+                user_message=message,
+                bot_response=error_message,
+                metadata={
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                },
+                tags=["booking-flow", "error"]
+            )
+            
             return ChatResponse(
                 message=error_message,
                 booking_state=booking_state,
