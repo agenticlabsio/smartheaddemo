@@ -4,18 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Brain, Shield, TrendingUp, Zap, CheckCircle } from "lucide-react"
 import { SignInButton, SignUpButton, useUser } from "@clerk/nextjs"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 
 export default function MarketingPage() {
-  const { isSignedIn, isLoaded } = useUser()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.push("/dashboard")
-    }
-  }, [isLoaded, isSignedIn, router])
+  const { isLoaded } = useUser()
 
   if (!isLoaded) {
     return (
@@ -26,10 +17,6 @@ export default function MarketingPage() {
         </div>
       </div>
     )
-  }
-
-  if (isSignedIn) {
-    return null // Will redirect via useEffect
   }
 
   return (
