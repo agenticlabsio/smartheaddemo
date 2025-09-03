@@ -763,7 +763,7 @@ export default function AIAssistantPage() {
                       ${Object.keys(insight.analysisData.dataTable[0])
                         .map(
                           (key) =>
-                            `<th class="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">${key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</th>`,
+                            `<th class="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-900">${key ? key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) : ""}</th>`,
                         )
                         .join("")}
                     </tr>
@@ -1132,8 +1132,8 @@ export default function AIAssistantPage() {
                                     className="text-sm p-2 hover:bg-muted rounded cursor-pointer"
                                     onClick={() => loadChat(chat.id)} // Add click handler to load chat
                                   >
-                                    {chat.filename.replace(".json", "").split("-")[0]} -{" "}
-                                    {new Date(chat.uploadedAt).toLocaleDateString()}
+                                    {chat.filename ? chat.filename.replace(".json", "").split("-")[0] : "Untitled Chat"}{" "}
+                                    - {new Date(chat.uploadedAt).toLocaleDateString()}
                                   </div>
                                 ))}
                               </>
