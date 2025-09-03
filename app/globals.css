@@ -4,78 +4,78 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color palette to professional dark blue theme */
-  --background: #ffffff; /* Pure white for clarity and spaciousness */
-  --foreground: #1e3a8a; /* Dark blue for text readability */
-  --card: #f1f5f9; /* Light gray for subtle sections */
-  --card-foreground: #475569; /* Dark gray for card text */
+  /* Updated to professional SaaS color palette with subtle colors */
+  --background: #fafbfc; /* Subtle off-white for warmth */
+  --foreground: #1a202c; /* Rich dark gray instead of pure black */
+  --card: #ffffff; /* Pure white cards for contrast */
+  --card-foreground: #2d3748; /* Softer dark gray for readability */
   --popover: #ffffff;
-  --popover-foreground: #1e3a8a;
-  --primary: #1e3a8a; /* Dark blue for professionalism */
+  --popover-foreground: #1a202c;
+  --primary: #4f46e5; /* Professional indigo for primary actions */
   --primary-foreground: #ffffff;
-  --secondary: #3b82f6; /* Blue for accents */
+  --secondary: #6366f1; /* Lighter indigo for secondary elements */
   --secondary-foreground: #ffffff;
-  --muted: #f1f5f9; /* Light gray for less prominent elements */
-  --muted-foreground: #475569;
-  --accent: #3b82f6; /* Blue for highlights */
+  --muted: #f7fafc; /* Very light blue-gray for subtle backgrounds */
+  --muted-foreground: #718096; /* Medium gray for muted text */
+  --accent: #06b6d4; /* Cyan accent for highlights and success states */
   --accent-foreground: #ffffff;
-  --destructive: #dc2626; /* Red for errors */
+  --destructive: #e53e3e; /* Professional red for errors */
   --destructive-foreground: #ffffff;
-  --border: #d1d5db; /* Subtle gray border */
-  --input: #f1f5f9; /* Light gray input backgrounds */
-  --ring: #3b82f6; /* Blue focus ring */
-  --chart-1: #1e3a8a; /* Primary blue for charts */
-  --chart-2: #3b82f6; /* Secondary blue for charts */
-  --chart-3: #475569; /* Dark gray for charts */
-  --chart-4: #f1f5f9; /* Light gray for charts */
-  --chart-5: #dc2626; /* Red for charts */
+  --border: #e2e8f0; /* Light gray-blue borders */
+  --input: #ffffff; /* White input backgrounds */
+  --ring: #4f46e5; /* Indigo focus rings */
+  --chart-1: #4f46e5; /* Primary indigo */
+  --chart-2: #06b6d4; /* Cyan */
+  --chart-3: #10b981; /* Emerald green */
+  --chart-4: #f59e0b; /* Amber */
+  --chart-5: #e53e3e; /* Red */
   --radius: 0.5rem;
-  --sidebar: #f1f5f9; /* Light gray sidebar */
-  --sidebar-foreground: #475569;
-  --sidebar-primary: #1e3a8a;
+  --sidebar: #f8fafc; /* Very light gray-blue sidebar */
+  --sidebar-foreground: #2d3748;
+  --sidebar-primary: #4f46e5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #3b82f6;
+  --sidebar-accent: #06b6d4;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #d1d5db;
-  --sidebar-ring: #3b82f6;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #4f46e5;
   --font-geist: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-manrope: "Manrope", ui-serif, Georgia, serif;
 }
 
 .dark {
-  /* Updated dark mode colors to maintain dark blue theme */
-  --background: #0f172a;
-  --foreground: #f1f5f9;
-  --card: #1e293b;
-  --card-foreground: #f1f5f9;
-  --popover: #1e293b;
-  --popover-foreground: #f1f5f9;
-  --primary: #3b82f6; /* Brighter blue for dark mode */
-  --primary-foreground: #0f172a;
-  --secondary: #1e3a8a;
-  --secondary-foreground: #f1f5f9;
-  --muted: #334155;
-  --muted-foreground: #94a3b8;
-  --accent: #3b82f6;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --destructive-foreground: #f1f5f9;
-  --border: #334155;
-  --input: #334155;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #1e3a8a;
-  --chart-3: #94a3b8;
-  --chart-4: #334155;
-  --chart-5: #ef4444;
-  --sidebar: #1e293b;
-  --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #f1f5f9;
-  --sidebar-accent: #334155;
-  --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: #334155;
-  --sidebar-ring: #3b82f6;
+  /* Enhanced dark mode with professional colors */
+  --background: #0f1419; /* Deep blue-black background */
+  --foreground: #f7fafc;
+  --card: #1a202c; /* Dark blue-gray cards */
+  --card-foreground: #e2e8f0;
+  --popover: #1a202c;
+  --popover-foreground: #f7fafc;
+  --primary: #6366f1; /* Brighter indigo for dark mode visibility */
+  --primary-foreground: #ffffff;
+  --secondary: #4f46e5;
+  --secondary-foreground: #ffffff;
+  --muted: #2d3748; /* Medium dark gray */
+  --muted-foreground: #a0aec0;
+  --accent: #06b6d4; /* Cyan remains vibrant in dark mode */
+  --accent-foreground: #ffffff;
+  --destructive: #f56565;
+  --destructive-foreground: #ffffff;
+  --border: #2d3748;
+  --input: #2d3748;
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #06b6d4;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #f56565;
+  --sidebar: #1a202c;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2d3748;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: #2d3748;
+  --sidebar-ring: #6366f1;
   --font-geist: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-manrope: "Manrope", ui-serif, Georgia, serif;
 }
@@ -164,12 +164,12 @@
 
   /* Professional card styling */
   .card-enterprise {
-    @apply bg-card border border-border rounded-lg shadow-sm;
+    @apply bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200;
   }
 
   /* Enhanced button styling for enterprise feel */
   .btn-enterprise {
-    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm;
+    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md;
   }
 
   .btn-primary {
@@ -178,5 +178,14 @@
 
   .btn-secondary {
     @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 focus:ring-2 focus:ring-ring;
+  }
+
+  /* Professional gradient backgrounds for marketing sections */
+  .gradient-hero {
+    @apply bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5;
+  }
+
+  .gradient-feature {
+    @apply bg-gradient-to-r from-accent/10 to-primary/10;
   }
 }

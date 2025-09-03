@@ -35,7 +35,7 @@ export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-primary/5 to-secondary/5">
+      <section className="py-20 px-4 gradient-hero">
         <div className="container mx-auto text-center">
           <h1 className="text-5xl font-bold text-foreground mb-6 text-balance">
             AI-Powered Procurement Intelligence Platform
@@ -46,12 +46,19 @@ export default function MarketingPage() {
           </p>
           <div className="flex items-center justify-center gap-4 mb-12">
             <SignUpButton mode="modal">
-              <Button size="lg" className="btn-enterprise btn-primary">
+              <Button
+                size="lg"
+                className="btn-enterprise btn-primary bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+              >
                 Get Started Free
               </Button>
             </SignUpButton>
             <SignInButton mode="modal">
-              <Button variant="outline" size="lg" className="btn-enterprise bg-transparent">
+              <Button
+                variant="outline"
+                size="lg"
+                className="btn-enterprise border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+              >
                 Sign In
               </Button>
             </SignInButton>
@@ -70,12 +77,12 @@ export default function MarketingPage() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-primary/20 transition-colors">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-primary/15 rounded-lg flex items-center justify-center mb-4 border border-primary/20">
                   <Brain className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg">AI Assistant</CardTitle>
+                <CardTitle className="text-lg text-foreground">AI Assistant</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
@@ -84,12 +91,12 @@ export default function MarketingPage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-accent/20 transition-colors">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <CheckCircle className="h-6 w-6 text-primary" />
+                <div className="mx-auto w-12 h-12 bg-accent/15 rounded-lg flex items-center justify-center mb-4 border border-accent/20">
+                  <CheckCircle className="h-6 w-6 text-accent" />
                 </div>
-                <CardTitle className="text-lg">Insights Approval</CardTitle>
+                <CardTitle className="text-lg text-foreground">Insights Approval</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
@@ -98,12 +105,12 @@ export default function MarketingPage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-secondary/20 transition-colors">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <BarChart3 className="h-6 w-6 text-primary" />
+                <div className="mx-auto w-12 h-12 bg-secondary/15 rounded-lg flex items-center justify-center mb-4 border border-secondary/20">
+                  <BarChart3 className="h-6 w-6 text-secondary" />
                 </div>
-                <CardTitle className="text-lg">Data Catalog</CardTitle>
+                <CardTitle className="text-lg text-foreground">Data Catalog</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
@@ -112,12 +119,12 @@ export default function MarketingPage() {
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-primary/20 transition-colors">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-primary/15 rounded-lg flex items-center justify-center mb-4 border border-primary/20">
                   <Shield className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg">Settings & Controls</CardTitle>
+                <CardTitle className="text-lg text-foreground">Settings & Controls</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Configure your platform preferences and manage user access controls</CardDescription>
@@ -128,104 +135,104 @@ export default function MarketingPage() {
       </section>
 
       {/* Core Capabilities */}
-      <section className="py-16 px-4 bg-muted/30">
+      <section className="py-16 px-4 gradient-feature">
         <div className="container mx-auto">
-          <h3 className="text-3xl font-bold text-center mb-4">Powerful Capabilities</h3>
+          <h3 className="text-3xl font-bold text-center mb-4 text-foreground">Powerful Capabilities</h3>
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
             Advanced features designed to transform how you manage procurement operations
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-accent/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <BarChart3 className="h-6 w-6 text-secondary" />
+                <div className="mx-auto w-12 h-12 bg-accent/15 rounded-lg flex items-center justify-center mb-4 border border-accent/20">
+                  <BarChart3 className="h-6 w-6 text-accent" />
                 </div>
-                <CardTitle className="text-lg">Automated Reconciliation</CardTitle>
+                <CardTitle className="text-lg text-foreground">Automated Reconciliation</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Seamlessly match transactions across ERP and procurement systems</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-primary/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <Brain className="h-6 w-6 text-secondary" />
+                <div className="mx-auto w-12 h-12 bg-primary/15 rounded-lg flex items-center justify-center mb-4 border border-primary/20">
+                  <Brain className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg">AI-Powered Analysis</CardTitle>
+                <CardTitle className="text-lg text-foreground">AI-Powered Analysis</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Intelligent variance detection and automated anomaly identification</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-secondary/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-secondary/15 rounded-lg flex items-center justify-center mb-4 border border-secondary/20">
                   <Shield className="h-6 w-6 text-secondary" />
                 </div>
-                <CardTitle className="text-lg">Risk Management</CardTitle>
+                <CardTitle className="text-lg text-foreground">Risk Management</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Proactive supplier and geographic risk monitoring and mitigation</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-accent/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <TrendingUp className="h-6 w-6 text-secondary" />
+                <div className="mx-auto w-12 h-12 bg-accent/15 rounded-lg flex items-center justify-center mb-4 border border-accent/20">
+                  <TrendingUp className="h-6 w-6 text-accent" />
                 </div>
-                <CardTitle className="text-lg">Spend Analytics</CardTitle>
+                <CardTitle className="text-lg text-foreground">Spend Analytics</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Comprehensive spending pattern analysis and optimization insights</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-secondary/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-secondary/15 rounded-lg flex items-center justify-center mb-4 border border-secondary/20">
                   <CheckCircle className="h-6 w-6 text-secondary" />
                 </div>
-                <CardTitle className="text-lg">Exception Management</CardTitle>
+                <CardTitle className="text-lg text-foreground">Exception Management</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Automatically flag and manage discrepancies for efficient review</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-primary/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <BarChart3 className="h-6 w-6 text-secondary" />
+                <div className="mx-auto w-12 h-12 bg-primary/15 rounded-lg flex items-center justify-center mb-4 border border-primary/20">
+                  <BarChart3 className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg">Data Validation</CardTitle>
+                <CardTitle className="text-lg text-foreground">Data Validation</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Automated quality checks and intelligent data enrichment</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-accent/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
-                  <TrendingUp className="h-6 w-6 text-secondary" />
+                <div className="mx-auto w-12 h-12 bg-accent/15 rounded-lg flex items-center justify-center mb-4 border border-accent/20">
+                  <TrendingUp className="h-6 w-6 text-accent" />
                 </div>
-                <CardTitle className="text-lg">Performance Tracking</CardTitle>
+                <CardTitle className="text-lg text-foreground">Performance Tracking</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>Real-time KPI monitoring and comprehensive reporting</CardDescription>
               </CardContent>
             </Card>
 
-            <Card className="text-center card-enterprise">
+            <Card className="text-center card-enterprise hover:border-secondary/30 transition-all hover:shadow-lg">
               <CardHeader>
-                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                <div className="mx-auto w-12 h-12 bg-secondary/15 rounded-lg flex items-center justify-center mb-4 border border-secondary/20">
                   <Zap className="h-6 w-6 text-secondary" />
                 </div>
-                <CardTitle className="text-lg">Cost Optimization</CardTitle>
+                <CardTitle className="text-lg text-foreground">Cost Optimization</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
@@ -240,46 +247,46 @@ export default function MarketingPage() {
       {/* Platform Benefits */}
       <section className="py-16 px-4">
         <div className="container mx-auto">
-          <h3 className="text-3xl font-bold text-center mb-4">Why Choose ProcureIQ</h3>
+          <h3 className="text-3xl font-bold text-center mb-4 text-foreground">Why Choose ProcureIQ</h3>
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
             Experience the benefits that leading procurement teams rely on
           </p>
 
           <div className="space-y-4 max-w-4xl mx-auto">
-            <Card className="card-enterprise">
-              <CardContent className="p-6">
+            <Card className="card-enterprise hover:border-primary/20 transition-colors">
+              <CardContent className="p-6 border-l-4 border-l-primary/30">
                 <p className="text-foreground">
                   Multi-system data reconciliation with real-time variance detection and automated resolution
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-enterprise">
-              <CardContent className="p-6">
+            <Card className="card-enterprise hover:border-accent/20 transition-colors">
+              <CardContent className="p-6 border-l-4 border-l-accent/30">
                 <p className="text-foreground">
                   AI-powered supplier performance monitoring with predictive risk analysis and mitigation strategies
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-enterprise">
-              <CardContent className="p-6">
+            <Card className="card-enterprise hover:border-secondary/20 transition-colors">
+              <CardContent className="p-6 border-l-4 border-l-secondary/30">
                 <p className="text-foreground">
                   Automated exception handling with intelligent contract compliance monitoring and alerts
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-enterprise">
-              <CardContent className="p-6">
+            <Card className="card-enterprise hover:border-primary/20 transition-colors">
+              <CardContent className="p-6 border-l-4 border-l-primary/30">
                 <p className="text-foreground">
                   Advanced spend categorization with AI-driven cost optimization insights and recommendations
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="card-enterprise">
-              <CardContent className="p-6">
+            <Card className="card-enterprise hover:border-accent/20 transition-colors">
+              <CardContent className="p-6 border-l-4 border-l-accent/30">
                 <p className="text-foreground">
                   Executive dashboards with predictive analytics, real-time reporting, and strategic insights
                 </p>
@@ -298,7 +305,10 @@ export default function MarketingPage() {
           </p>
           <div className="flex items-center justify-center gap-4">
             <SignUpButton mode="modal">
-              <Button size="lg" variant="secondary" className="btn-enterprise">
+              <Button
+                size="lg"
+                className="btn-enterprise bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg"
+              >
                 Start Your Free Trial
               </Button>
             </SignUpButton>
@@ -306,7 +316,7 @@ export default function MarketingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="btn-enterprise border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary bg-transparent"
+                className="btn-enterprise border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary bg-transparent shadow-lg"
               >
                 Sign In
               </Button>
