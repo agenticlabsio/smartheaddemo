@@ -3,9 +3,35 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Brain, Shield, TrendingUp, Zap, CheckCircle } from "lucide-react"
-import { SignInButton, SignUpButton } from "@clerk/nextjs"
+import { SignInButton, SignUpButton, useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function MarketingPage() {
+  const { isSignedIn, isLoaded } = useUser()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.push("/dashboard")
+    }
+  }, [isLoaded, isSignedIn, router])
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isSignedIn) {
+    return null // Will redirect via useEffect
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
