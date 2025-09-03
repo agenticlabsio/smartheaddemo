@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -123,69 +122,152 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground font-sans;
-  }
+/* Converted @layer base to regular CSS to fix Tailwind v4 compatibility */
+* {
+  border-color: var(--color-border);
+  outline-color: color-mix(in srgb, var(--color-ring) 50%, transparent);
+}
 
-  /* Enhanced typography hierarchy */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-serif font-bold;
-  }
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
 
+/* Enhanced typography hierarchy */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+}
+
+h1 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+}
+
+h3 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+
+h4 {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+
+@media (min-width: 1024px) {
   h1 {
-    @apply text-3xl lg:text-4xl;
+    font-size: 2.25rem;
+    line-height: 2.5rem;
   }
 
   h2 {
-    @apply text-2xl lg:text-3xl;
+    font-size: 1.875rem;
+    line-height: 2.25rem;
   }
 
   h3 {
-    @apply text-xl lg:text-2xl;
+    font-size: 1.5rem;
+    line-height: 2rem;
   }
 
   h4 {
-    @apply text-lg lg:text-xl;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
   }
+}
 
-  /* Enhanced spacing and layout standards */
+/* Enhanced spacing and layout standards */
+.container {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 1024px) {
   .container {
-    @apply px-4 lg:px-8;
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
+}
 
-  /* Professional card styling */
-  .card-enterprise {
-    @apply bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200;
-  }
+/* Professional card styling */
+.card-enterprise {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  transition: box-shadow 0.2s ease-in-out;
+}
 
-  /* Enhanced button styling for enterprise feel */
-  .btn-enterprise {
-    @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md;
-  }
+.card-enterprise:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
 
-  .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-2 focus:ring-ring;
-  }
+/* Enhanced button styling for enterprise feel */
+.btn-enterprise {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
 
-  .btn-secondary {
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 focus:ring-2 focus:ring-ring;
-  }
+.btn-enterprise:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
 
-  /* Professional gradient backgrounds for marketing sections */
-  .gradient-hero {
-    @apply bg-gradient-to-br from-primary/5 via-accent/5 to-secondary/5;
-  }
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
 
-  .gradient-feature {
-    @apply bg-gradient-to-r from-accent/10 to-primary/10;
-  }
+.btn-primary:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 90%, black);
+}
+
+.btn-primary:focus {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: var(--color-secondary-foreground);
+}
+
+.btn-secondary:hover {
+  background-color: color-mix(in srgb, var(--color-secondary) 90%, black);
+}
+
+.btn-secondary:focus {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Professional gradient backgrounds for marketing sections */
+.gradient-hero {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 5%, transparent),
+    color-mix(in srgb, var(--color-accent) 5%, transparent),
+    color-mix(in srgb, var(--color-secondary) 5%, transparent)
+  );
+}
+
+.gradient-feature {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-accent) 10%, transparent),
+    color-mix(in srgb, var(--color-primary) 10%, transparent)
+  );
 }
