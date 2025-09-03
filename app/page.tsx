@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Brain, Shield, TrendingUp, Zap, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import { Navigation } from "@/components/navigation"
 
 // Mock dashboard data based on product overview
 const dashboardMetrics = {
@@ -51,38 +52,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-primary">SpendSmart</h1>
-              <div className="hidden md:flex items-center space-x-6">
-                <Link href="/" className="text-foreground hover:text-primary font-medium">
-                  Home
-                </Link>
-                <Link href="/ai-assistant" className="text-muted-foreground hover:text-primary">
-                  AI Assistant
-                </Link>
-                <Link href="/insights-approval" className="text-muted-foreground hover:text-primary">
-                  Insights Approval
-                </Link>
-                <Link href="/data-catalog" className="text-muted-foreground hover:text-primary">
-                  Data Catalog
-                </Link>
-                <Link href="/settings" className="text-muted-foreground hover:text-primary">
-                  Settings
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">mike@agenticlabs.io</span>
-              <Button variant="outline" size="sm">
-                Sign Out
-              </Button>
-            </div>
-          </nav>
-        </div>
-      </header>
+      <Navigation />
 
       <section className="py-16 px-4">
         <div className="container mx-auto text-center">

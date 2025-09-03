@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Playfair_Display, Source_Sans_3 as Source_Sans_Pro } from "next/font/google"
 import { Suspense } from "react"
+import { ClerkProvider } from "@clerk/nextjs"
 import "./globals.css"
 
 const playfairDisplay = Playfair_Display({
@@ -30,10 +31,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${sourceSansPro.variable} ${playfairDisplay.variable} font-sans antialiased`}>
-        <Suspense fallback={null}>{children}</Suspense>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${sourceSansPro.variable} ${playfairDisplay.variable} font-sans antialiased`}>
+          <Suspense fallback={null}>{children}</Suspense>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }
