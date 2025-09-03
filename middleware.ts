@@ -10,19 +10,24 @@ const isProtectedRoute = createRouteMatcher([
   "/live-chat(.*)",
 ])
 
-export default clerkMiddleware((auth, req) => {
-  const { userId } = auth()
+export default clerkMiddleware(
+  async (auth, req) => {
+    const { userId } = await auth()
 
-  // Redirect authenticated users from home to dashboard
-  if (userId && req.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
-  }
+    // Redirect authenticated users from home to dashboard
+    if (userId && req.nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", req.url))
+    }
 
-  // Protect authenticated routes
-  if (isProtectedRoute(req)) {
-    auth().protect()
-  }
-})
+    // Protect authenticated routes
+    if (isProtectedRoute(req)) {
+      await auth.protect()
+    }
+  },
+  {
+    debug: process.env.NODE_ENV === "development",
+  },
+)
 
 export const config = {
   matcher: [
