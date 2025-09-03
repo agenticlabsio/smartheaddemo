@@ -2,15 +2,29 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, Check, X, MessageSquare, Calendar, Users, Brain, Star } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  X,
+  MessageSquare,
+  Calendar,
+  Users,
+  Brain,
+  Star,
+  HelpCircle,
+  BookOpen,
+  Target,
+  AlertTriangle,
+} from "lucide-react"
 import Link from "next/link"
+import { Navigation } from "@/components/navigation"
 
 // Mock insights data based on the screenshots
 const insightsData = [
@@ -112,6 +126,7 @@ export default function InsightsApprovalPage() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterPriority, setFilterPriority] = useState("all")
   const [notes, setNotes] = useState("")
+  const [showInstructions, setShowInstructions] = useState(true)
 
   const filteredInsights = insightsData.filter((insight) => {
     if (filterStatus !== "all" && insight.status !== filterStatus) return false
@@ -157,80 +172,178 @@ export default function InsightsApprovalPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-primary">SpendSmart</h1>
-              <div className="hidden md:flex items-center space-x-6">
-                <Link href="/" className="text-muted-foreground hover:text-primary">
-                  Home
-                </Link>
-                <Link href="/ai-assistant" className="text-muted-foreground hover:text-primary">
-                  AI Assistant
-                </Link>
-                <Link href="/insights-approval" className="text-primary font-medium border-b-2 border-primary pb-1">
-                  Insights Approval
-                </Link>
-                <Link href="/data-catalog" className="text-muted-foreground hover:text-primary">
-                  Data Catalog
-                </Link>
-                <Link href="/settings" className="text-muted-foreground hover:text-primary">
-                  Settings
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">mike@agenticlabs.io</span>
-              <Button variant="outline" size="sm">
-                Sign Out
-              </Button>
-            </div>
-          </nav>
-        </div>
-      </header>
+      <Navigation />
 
       <div className="container mx-auto px-4 py-6">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Insights Approval</h1>
+              <p className="text-muted-foreground text-lg">
+                Review and validate AI-generated procurement insights to ensure accuracy and relevance
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowInstructions(!showInstructions)}
+              className="flex items-center gap-2"
+            >
+              <BookOpen className="h-4 w-4" />
+              {showInstructions ? "Hide" : "Show"} Guide
+            </Button>
+          </div>
+
+          {showInstructions && (
+            <Card className="card-enterprise mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  How to Use Insights Approval
+                </CardTitle>
+                <CardDescription>
+                  This is your first stop for validating AI recommendations. Follow these steps to get the most value.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                        1
+                      </div>
+                      <h4 className="font-semibold">Review High Priority First</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Start with high-priority insights marked with ⭐. These typically involve significant financial
+                      impact or risk.
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <AlertTriangle className="h-3 w-3" />
+                      Focus on insights with confidence scores above 80%
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                        2
+                      </div>
+                      <h4 className="font-semibold">Validate Against Context</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Check if the insight aligns with your business strategy, current initiatives, and market
+                      conditions.
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <Brain className="h-3 w-3" />
+                      AI insights are based on data patterns, not business context
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-sm font-bold">
+                        3
+                      </div>
+                      <h4 className="font-semibold">Take Action</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Approve actionable insights, reject irrelevant ones, and add notes for future reference or team
+                      collaboration.
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-primary">
+                      <MessageSquare className="h-3 w-3" />
+                      Use notes to explain your decision rationale
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                  <h5 className="font-medium mb-2 flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4 text-primary" />
+                    Quick Tips for Better Decisions
+                  </h5>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>
+                      • <strong>High confidence (85%+):</strong> Usually safe to approve if business context aligns
+                    </li>
+                    <li>
+                      • <strong>Medium confidence (70-84%):</strong> Requires careful review and validation
+                    </li>
+                    <li>
+                      • <strong>Low confidence (&lt;70%):</strong> Consider rejecting or requesting more data
+                    </li>
+                    <li>
+                      • <strong>Financial impact:</strong> Larger impacts deserve more scrutiny and stakeholder input
+                    </li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
         {/* Back Navigation */}
         <div className="flex items-center mb-6">
-          <Link href="/ai-assistant" className="flex items-center text-muted-foreground hover:text-primary">
+          <Link href="/dashboard" className="flex items-center text-muted-foreground hover:text-primary">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to AI Assistant
+            Back to Dashboard
           </Link>
         </div>
 
-        {/* Filters */}
-        <div className="flex items-center space-x-4 mb-6">
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+        <Card className="card-enterprise mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Filter & Search Insights</CardTitle>
+            <CardDescription>
+              Use filters to focus on specific types of insights. Start with "Pending" status to see items requiring
+              your attention.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-4">
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending Review</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="high">High Priority</SelectItem>
+                  <SelectItem value="medium">Medium Priority</SelectItem>
+                  <SelectItem value="low">Low Priority</SelectItem>
+                </SelectContent>
+              </Select>
 
-          <Input placeholder="Search insights..." className="max-w-sm" />
-        </div>
+              <Input placeholder="Search by insight title, cost center, or impact..." className="max-w-sm" />
+
+              <div className="text-sm text-muted-foreground">
+                {filteredInsights.length} insights • {filteredInsights.filter((i) => i.status === "pending").length}{" "}
+                pending review
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Insights Table */}
-        <Card>
+        <Card className="card-enterprise">
+          <CardHeader>
+            <CardTitle>Procurement Insights</CardTitle>
+            <CardDescription>
+              AI-generated recommendations based on your procurement data. Review each insight carefully before
+              approving or rejecting.
+            </CardDescription>
+          </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -308,19 +421,24 @@ export default function InsightsApprovalPage() {
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button variant="ghost" size="sm" className="text-xs">
-                              {insight.notes === "No notes" ? "No notes +" : insight.notes}
+                              {insight.notes === "No notes" ? "Add notes +" : insight.notes}
                             </Button>
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Add Notes</DialogTitle>
+                              <DialogTitle>Add Notes - {insight.insight}</DialogTitle>
                             </DialogHeader>
-                            <Textarea
-                              placeholder="Add your notes here..."
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              className="min-h-24"
-                            />
+                            <div className="space-y-4">
+                              <p className="text-sm text-muted-foreground">
+                                Add context about why you approved/rejected this insight, or notes for future reference.
+                              </p>
+                              <Textarea
+                                placeholder="Example: 'Approved - aligns with Q1 cost reduction initiative. Will coordinate with supplier management team.'"
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                className="min-h-24"
+                              />
+                            </div>
                             <div className="flex justify-end space-x-2">
                               <Button variant="outline" size="sm">
                                 Cancel
@@ -339,6 +457,7 @@ export default function InsightsApprovalPage() {
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
                                 onClick={() => handleApprove(insight.id)}
+                                title="Approve this insight"
                               >
                                 <Check className="h-4 w-4" />
                               </Button>
@@ -347,12 +466,18 @@ export default function InsightsApprovalPage() {
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
                                 onClick={() => handleReject(insight.id)}
+                                title="Reject this insight"
                               >
                                 <X className="h-4 w-4" />
                               </Button>
                             </>
                           )}
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                            title="Discuss this insight"
+                          >
                             <MessageSquare className="h-4 w-4" />
                           </Button>
                         </div>

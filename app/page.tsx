@@ -3,293 +3,291 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Brain, Shield, TrendingUp, Zap, CheckCircle } from "lucide-react"
-import Link from "next/link"
-import { Navigation } from "@/components/navigation"
+import { SignInButton, SignUpButton } from "@clerk/nextjs"
 
-// Mock dashboard data based on product overview
-const dashboardMetrics = {
-  totalSpend: "$52.3M",
-  suppliers: "1,247",
-  facilities: "4",
-  costCenters: "12",
-  pendingInsights: 3,
-  approvedInsights: 6,
-  riskLevel: "Medium",
-  savingsOpportunity: "$2.1M",
-}
-
-const recentInsights = [
-  {
-    title: "Supplier Concentration Risk",
-    description: "Top 10 suppliers control 51.7% of spend ($13.2M)",
-    priority: "High",
-    status: "pending",
-    impact: "$3.94M at risk",
-  },
-  {
-    title: "Professional Services Consolidation",
-    description: "47 suppliers can be consolidated to 20 for $890K savings",
-    priority: "High",
-    status: "approved",
-    impact: "$890K savings",
-  },
-  {
-    title: "Geographic Concentration Risk",
-    description: "67.3% suppliers in Southeast region creates vulnerability",
-    priority: "Medium",
-    status: "approved",
-    impact: "$8.95M at risk",
-  },
-]
-
-const facilityMetrics = [
-  { name: "Manufacturing Hub Alpha", spend: "$30.3M", percentage: 58 },
-  { name: "Distribution Center Beta", spend: "$12.1M", percentage: 23 },
-  { name: "Innovation Campus Gamma", spend: "$9.9M", percentage: 19 },
-]
-
-export default function HomePage() {
+export default function MarketingPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Header */}
-      <Navigation />
+      {/* Hero Section */}
+      <section className="py-20 px-4 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className="container mx-auto text-center">
+          <h1 className="text-5xl font-bold text-foreground mb-6 text-balance">
+            AI-Powered Procurement Intelligence Platform
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto text-pretty">
+            Transform your procurement operations with real-time predictive insights, automated reconciliation, and
+            intelligent analytics. Make data-driven decisions that drive cost savings and operational excellence.
+          </p>
+          <div className="flex items-center justify-center gap-4 mb-12">
+            <SignUpButton mode="modal">
+              <Button size="lg" className="btn-enterprise btn-primary">
+                Get Started Free
+              </Button>
+            </SignUpButton>
+            <SignInButton mode="modal">
+              <Button variant="outline" size="lg" className="btn-enterprise bg-transparent">
+                Sign In
+              </Button>
+            </SignInButton>
+          </div>
+          <p className="text-sm text-muted-foreground">Join procurement teams already saving millions with ProcureIQ</p>
+        </div>
+      </section>
 
+      {/* Platform Overview */}
       <section className="py-16 px-4">
         <div className="container mx-auto text-center">
-          <h2 className="text-4xl font-bold text-foreground mb-4">
-            AI-enabled real-time predictive Insights and Analytics
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            Essential tools for financial reconciliation and analysis
+          <h2 className="text-3xl font-bold text-foreground mb-4">Everything You Need to Master Procurement</h2>
+          <p className="text-muted-foreground mb-12 max-w-2xl mx-auto">
+            Our comprehensive platform provides the tools and insights you need to optimize spend, manage risk, and
+            drive strategic value.
           </p>
-          <div className="flex items-center justify-center space-x-4">
-            <Button asChild size="lg">
-              <Link href="/ai-assistant">
-                <Brain className="mr-2 h-5 w-5" />
-                AI Assistant
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href="/settings">Settings</Link>
-            </Button>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Brain className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-lg">AI Assistant</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Ask natural language questions about your procurement data and get instant insights
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <CheckCircle className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-lg">Insights Approval</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Review and approve AI-generated insights to ensure accuracy and relevance
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-lg">Data Catalog</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Explore and understand your procurement data sources and their relationships
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Shield className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-lg">Settings & Controls</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Configure your platform preferences and manage user access controls</CardDescription>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
 
-      {/* Main Dashboard Content */}
-      <div className="container mx-auto">
-        <section className="py-8 px-4 bg-muted/30">
-          <div className="container mx-auto">
-            <Card>
+      {/* Core Capabilities */}
+      <section className="py-16 px-4 bg-muted/30">
+        <div className="container mx-auto">
+          <h3 className="text-3xl font-bold text-center mb-4">Powerful Capabilities</h3>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+            Advanced features designed to transform how you manage procurement operations
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="text-center card-enterprise">
               <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Access key platform features and tools</CardDescription>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <BarChart3 className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Automated Reconciliation</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent"
-                  >
-                    <Link href="/ai-assistant">
-                      <Brain className="h-6 w-6 text-primary" />
-                      <span>AI Assistant</span>
-                      <span className="text-xs text-muted-foreground">Ask questions about your data</span>
-                    </Link>
-                  </Button>
+                <CardDescription>Seamlessly match transactions across ERP and procurement systems</CardDescription>
+              </CardContent>
+            </Card>
 
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent"
-                  >
-                    <Link href="/insights-approval">
-                      <CheckCircle className="h-6 w-6 text-primary" />
-                      <span>Approve Insights</span>
-                      <span className="text-xs text-muted-foreground">Review pending insights</span>
-                    </Link>
-                  </Button>
-
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent"
-                  >
-                    <Link href="/data-catalog">
-                      <BarChart3 className="h-6 w-6 text-primary" />
-                      <span>Data Catalog</span>
-                      <span className="text-xs text-muted-foreground">Explore data sources</span>
-                    </Link>
-                  </Button>
-
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-center space-y-2 bg-transparent"
-                  >
-                    <Link href="/settings">
-                      <Shield className="h-6 w-6 text-primary" />
-                      <span>Settings</span>
-                      <span className="text-xs text-muted-foreground">Manage preferences</span>
-                    </Link>
-                  </Button>
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Brain className="h-6 w-6 text-secondary" />
                 </div>
+                <CardTitle className="text-lg">AI-Powered Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Intelligent variance detection and automated anomaly identification</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Shield className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Risk Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Proactive supplier and geographic risk monitoring and mitigation</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <TrendingUp className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Spend Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Comprehensive spending pattern analysis and optimization insights</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <CheckCircle className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Exception Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Automatically flag and manage discrepancies for efficient review</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <BarChart3 className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Data Validation</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Automated quality checks and intelligent data enrichment</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <TrendingUp className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Performance Tracking</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>Real-time KPI monitoring and comprehensive reporting</CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center card-enterprise">
+              <CardHeader>
+                <div className="mx-auto w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+                  <Zap className="h-6 w-6 text-secondary" />
+                </div>
+                <CardTitle className="text-lg">Cost Optimization</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  AI-driven identification of savings opportunities and cost reduction strategies
+                </CardDescription>
               </CardContent>
             </Card>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Core Features */}
-        <section className="py-16 px-4 bg-muted/30">
-          <div className="container mx-auto">
-            <h3 className="text-3xl font-bold text-center mb-4">Core Features</h3>
-            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-              Essential tools for financial reconciliation and analysis
-            </p>
+      {/* Platform Benefits */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto">
+          <h3 className="text-3xl font-bold text-center mb-4">Why Choose ProcureIQ</h3>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
+            Experience the benefits that leading procurement teams rely on
+          </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <BarChart3 className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Automated Reconciliation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Match transactions across ERP and procurement systems</CardDescription>
-                </CardContent>
-              </Card>
+          <div className="space-y-4 max-w-4xl mx-auto">
+            <Card className="card-enterprise">
+              <CardContent className="p-6">
+                <p className="text-foreground">
+                  Multi-system data reconciliation with real-time variance detection and automated resolution
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Brain className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">AI-Powered Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Intelligent variance detection and anomaly identification</CardDescription>
-                </CardContent>
-              </Card>
+            <Card className="card-enterprise">
+              <CardContent className="p-6">
+                <p className="text-foreground">
+                  AI-powered supplier performance monitoring with predictive risk analysis and mitigation strategies
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Shield className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Exception Management</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Flag and manage discrepancies for review</CardDescription>
-                </CardContent>
-              </Card>
+            <Card className="card-enterprise">
+              <CardContent className="p-6">
+                <p className="text-foreground">
+                  Automated exception handling with intelligent contract compliance monitoring and alerts
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Spend Analytics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Comprehensive spending pattern analysis</CardDescription>
-                </CardContent>
-              </Card>
+            <Card className="card-enterprise">
+              <CardContent className="p-6">
+                <p className="text-foreground">
+                  Advanced spend categorization with AI-driven cost optimization insights and recommendations
+                </p>
+              </CardContent>
+            </Card>
 
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Shield className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Risk Assessment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Supplier and geographic risk monitoring</CardDescription>
-                </CardContent>
-              </Card>
-
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <BarChart3 className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Data Validation</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Quality checks and data enrichment</CardDescription>
-                </CardContent>
-              </Card>
-
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Performance Tracking</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>KPI monitoring and reporting</CardDescription>
-                </CardContent>
-              </Card>
-
-              <Card className="text-center">
-                <CardHeader>
-                  <div className="mx-auto w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-                    <Zap className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-lg">Cost Optimization</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>Identify savings opportunities</CardDescription>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="card-enterprise">
+              <CardContent className="p-6">
+                <p className="text-foreground">
+                  Executive dashboards with predictive analytics, real-time reporting, and strategic insights
+                </p>
+              </CardContent>
+            </Card>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Platform Capabilities */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto">
-            <h3 className="text-3xl font-bold text-center mb-4">Platform Capabilities</h3>
-            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-              Comprehensive functionality for procurement teams
-            </p>
-
-            <div className="space-y-4 max-w-4xl mx-auto">
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-foreground">Multi-system data reconciliation with real-time variance detection</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-foreground">AI-powered supplier performance monitoring and risk analysis</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-foreground">Automated exception handling and contract compliance monitoring</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-foreground">Advanced spend categorization and cost optimization insights</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-foreground">Executive dashboards with predictive analytics and reporting</p>
-                </CardContent>
-              </Card>
-            </div>
+      {/* Call to Action */}
+      <section className="py-16 px-4 bg-primary text-primary-foreground">
+        <div className="container mx-auto text-center">
+          <h3 className="text-3xl font-bold mb-4">Ready to Transform Your Procurement?</h3>
+          <p className="text-xl mb-8 max-w-2xl mx-auto opacity-90">
+            Join leading organizations already using ProcureIQ to drive cost savings and operational excellence.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <SignUpButton mode="modal">
+              <Button size="lg" variant="secondary" className="btn-enterprise">
+                Start Your Free Trial
+              </Button>
+            </SignUpButton>
+            <SignInButton mode="modal">
+              <Button
+                size="lg"
+                variant="outline"
+                className="btn-enterprise border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary bg-transparent"
+              >
+                Sign In
+              </Button>
+            </SignInButton>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

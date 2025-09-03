@@ -10,24 +10,31 @@ export function Navigation() {
       <div className="container mx-auto px-4 py-4">
         <nav className="flex items-center justify-between">
           <div className="flex items-center space-x-8">
-            <h1 className="text-2xl font-bold text-primary">SpendSmart</h1>
-            <div className="hidden md:flex items-center space-x-6">
-              <Link href="/" className="text-foreground hover:text-primary font-medium">
-                Home
-              </Link>
-              <Link href="/ai-assistant" className="text-muted-foreground hover:text-primary">
-                AI Assistant
-              </Link>
-              <Link href="/insights-approval" className="text-muted-foreground hover:text-primary">
-                Insights Approval
-              </Link>
-              <Link href="/data-catalog" className="text-muted-foreground hover:text-primary">
-                Data Catalog
-              </Link>
-              <Link href="/settings" className="text-muted-foreground hover:text-primary">
-                Settings
-              </Link>
-            </div>
+            <Link href="/" className="text-2xl font-bold text-primary hover:text-primary/80">
+              ProcureIQ
+            </Link>
+            <SignedIn>
+              <div className="hidden md:flex items-center space-x-6">
+                <Link href="/dashboard" className="text-foreground hover:text-primary font-medium">
+                  Dashboard
+                </Link>
+                <Link href="/insights-approval" className="text-muted-foreground hover:text-primary">
+                  Insights Approval
+                </Link>
+                <Link href="/ai-assistant" className="text-muted-foreground hover:text-primary">
+                  AI Assistant
+                </Link>
+                <Link href="/live-chat" className="text-muted-foreground hover:text-primary">
+                  Live Chat
+                </Link>
+                <Link href="/data-catalog" className="text-muted-foreground hover:text-primary">
+                  Data Catalog
+                </Link>
+                <Link href="/settings" className="text-muted-foreground hover:text-primary">
+                  Settings
+                </Link>
+              </div>
+            </SignedIn>
           </div>
           <div className="flex items-center space-x-4">
             <SignedOut>

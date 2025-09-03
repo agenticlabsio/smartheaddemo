@@ -4,82 +4,86 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color palette from blue to professional green enterprise theme */
-  --background: oklch(1 0 0); /* Pure white for clarity and spaciousness */
-  --foreground: oklch(0.25 0 0); /* Dark gray (#374151) for text readability */
-  --card: oklch(0.98 0.02 140); /* Light green (#f0fdf4) for subtle sections */
-  --card-foreground: oklch(0.25 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0 0);
-  --primary: oklch(0.45 0.15 140); /* Green-600 (#16a34a) for professionalism */
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.55 0.18 145); /* Bright green (#22c55e) for accents */
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.98 0.02 140); /* Light green for less prominent elements */
-  --muted-foreground: oklch(0.35 0 0);
-  --accent: oklch(0.55 0.18 145); /* Bright green for highlights */
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.55 0.22 25); /* Red for errors */
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.88 0.02 140); /* Subtle green border */
-  --input: oklch(1 0 0); /* Clean white input backgrounds */
-  --ring: oklch(0.45 0.15 140 / 0.3); /* Green focus ring */
-  --chart-1: oklch(0.45 0.15 140); /* Primary green for charts */
-  --chart-2: oklch(0.55 0.18 145); /* Secondary green for charts */
-  --chart-3: oklch(0.55 0.22 25); /* Red for charts */
-  --chart-4: oklch(0.45 0.05 150); /* Professional green-gray */
-  --chart-5: oklch(0.25 0 0); /* Dark gray for charts */
+  /* Updated color palette to professional dark blue theme */
+  --background: #ffffff; /* Pure white for clarity and spaciousness */
+  --foreground: #1e3a8a; /* Dark blue for text readability */
+  --card: #f1f5f9; /* Light gray for subtle sections */
+  --card-foreground: #475569; /* Dark gray for card text */
+  --popover: #ffffff;
+  --popover-foreground: #1e3a8a;
+  --primary: #1e3a8a; /* Dark blue for professionalism */
+  --primary-foreground: #ffffff;
+  --secondary: #3b82f6; /* Blue for accents */
+  --secondary-foreground: #ffffff;
+  --muted: #f1f5f9; /* Light gray for less prominent elements */
+  --muted-foreground: #475569;
+  --accent: #3b82f6; /* Blue for highlights */
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626; /* Red for errors */
+  --destructive-foreground: #ffffff;
+  --border: #d1d5db; /* Subtle gray border */
+  --input: #f1f5f9; /* Light gray input backgrounds */
+  --ring: #3b82f6; /* Blue focus ring */
+  --chart-1: #1e3a8a; /* Primary blue for charts */
+  --chart-2: #3b82f6; /* Secondary blue for charts */
+  --chart-3: #475569; /* Dark gray for charts */
+  --chart-4: #f1f5f9; /* Light gray for charts */
+  --chart-5: #dc2626; /* Red for charts */
   --radius: 0.5rem;
-  --sidebar: oklch(0.98 0.02 140); /* Light green sidebar */
-  --sidebar-foreground: oklch(0.25 0 0);
-  --sidebar-primary: oklch(0.45 0.15 140);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.55 0.18 145);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.88 0.02 140);
-  --sidebar-ring: oklch(0.45 0.15 140 / 0.3);
+  --sidebar: #f1f5f9; /* Light gray sidebar */
+  --sidebar-foreground: #475569;
+  --sidebar-primary: #1e3a8a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3b82f6;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #d1d5db;
+  --sidebar-ring: #3b82f6;
+  --font-geist: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-manrope: "Manrope", ui-serif, Georgia, serif;
 }
 
 .dark {
-  /* Updated dark mode colors to maintain enterprise green theme */
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.15 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.15 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.55 0.18 145); /* Brighter green for dark mode */
-  --primary-foreground: oklch(0.12 0 0);
-  --secondary: oklch(0.45 0.15 140);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.18 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.55 0.18 145);
-  --accent-foreground: oklch(0.12 0 0);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.22 0 0);
-  --input: oklch(0.18 0 0);
-  --ring: oklch(0.55 0.18 145 / 0.3);
-  --chart-1: oklch(0.55 0.18 145);
-  --chart-2: oklch(0.45 0.15 140);
-  --chart-3: oklch(0.65 0.22 25);
-  --chart-4: oklch(0.55 0.08 150);
-  --chart-5: oklch(0.65 0 0);
-  --sidebar: oklch(0.15 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.55 0.18 145);
-  --sidebar-primary-foreground: oklch(0.95 0 0);
-  --sidebar-accent: oklch(0.18 0 0);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.22 0 0);
-  --sidebar-ring: oklch(0.55 0.18 145 / 0.3);
+  /* Updated dark mode colors to maintain dark blue theme */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #3b82f6; /* Brighter blue for dark mode */
+  --primary-foreground: #0f172a;
+  --secondary: #1e3a8a;
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #3b82f6;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f1f5f9;
+  --border: #334155;
+  --input: #334155;
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #1e3a8a;
+  --chart-3: #94a3b8;
+  --chart-4: #334155;
+  --chart-5: #ef4444;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f1f5f9;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #f1f5f9;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #334155;
+  --sidebar-ring: #3b82f6;
+  --font-geist: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-manrope: "Manrope", ui-serif, Georgia, serif;
 }
 
 @theme inline {
-  /* Updated font variables to use Playfair Display and Source Sans Pro */
-  --font-sans: "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  /* Updated font variables to use Geist and Manrope */
+  --font-sans: var(--font-geist);
+  --font-serif: var(--font-manrope);
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -127,7 +131,7 @@
     @apply bg-background text-foreground font-sans;
   }
 
-  /* Added enterprise typography hierarchy */
+  /* Enhanced typography hierarchy */
   h1,
   h2,
   h3,
@@ -174,26 +178,5 @@
 
   .btn-secondary {
     @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 focus:ring-2 focus:ring-ring;
-  }
-
-  /* Professional table styling */
-  .table-enterprise {
-    @apply w-full border-collapse;
-  }
-
-  .table-enterprise th {
-    @apply bg-muted border border-border px-4 py-3 text-left font-semibold text-foreground;
-  }
-
-  .table-enterprise td {
-    @apply border border-border px-4 py-3 text-foreground;
-  }
-
-  .table-enterprise tr:nth-child(even) {
-    @apply bg-card;
-  }
-
-  .table-enterprise tr:hover {
-    @apply bg-accent/10;
   }
 }

@@ -1,27 +1,28 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Playfair_Display, Source_Sans_3 as Source_Sans_Pro } from "next/font/google"
+import { Geist, Manrope } from "next/font/google"
 import { Suspense } from "react"
 import { ClerkProvider } from "@clerk/nextjs"
 import "./globals.css"
 
-const playfairDisplay = Playfair_Display({
+const geist = Geist({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-playfair-display",
-  weight: ["400", "700", "900"],
+  variable: "--font-geist",
+  weight: ["300", "400", "500", "600", "700"],
 })
 
-const sourceSansPro = Source_Sans_Pro({
+const manrope = Manrope({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-source-sans-pro",
-  weight: ["300", "400", "600", "700"],
+  variable: "--font-manrope",
+  weight: ["300", "400", "500", "600", "700", "800"],
 })
 
 export const metadata: Metadata = {
-  title: "SpendSmart - AI-Powered Procurement Intelligence",
-  description: "Enterprise procurement intelligence platform with AI-powered insights and analytics",
+  title: "ProcureIQ - AI-Powered Procurement Intelligence Platform",
+  description:
+    "Transform your procurement operations with real-time predictive insights, automated reconciliation, and intelligent analytics",
   generator: "v0.app",
 }
 
@@ -33,7 +34,7 @@ export default function RootLayout({
   return (
     <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
       <html lang="en">
-        <body className={`${sourceSansPro.variable} ${playfairDisplay.variable} font-sans antialiased`}>
+        <body className={`${geist.variable} ${manrope.variable} font-sans antialiased`}>
           <Suspense fallback={null}>{children}</Suspense>
         </body>
       </html>
