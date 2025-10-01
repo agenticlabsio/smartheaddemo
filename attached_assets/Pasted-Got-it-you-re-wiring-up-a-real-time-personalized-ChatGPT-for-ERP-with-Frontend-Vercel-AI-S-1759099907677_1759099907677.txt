@@ -1,0 +1,113 @@
+Got it — you’re wiring up a real-time, personalized “ChatGPT-for-ERP” with:
+	•	Frontend: Vercel AI SDK v5 + AI Components
+	•	Gateway: Vercel AI Gateway (routing, budgets, observability)
+	•	Backend: Convex (DB + realtime + streaming + jobs)
+	•	Agents: Mastra (multi-agent, tools, workflows)
+
+Here’s the blunt, practical blueprint that plays to each tool’s strengths, plus the traps to avoid.
+
+Architecture at a glance
+	1.	Client (Next.js/React)
+
+	•	Use AI SDK v5 for typed chat state, tool calls, and streaming UI; the v5 release adds better loop control, tool ergonomics, and access to raw responses.  ￼
+	•	Compose the UI with AI Components/Elements to render messages, tool outputs, and “live tiles” (KPIs, tables, charts).  ￼
+
+	2.	Model Access
+
+	•	Route every LLM/embedding call through Vercel AI Gateway to get provider failover, rate limiting, spend/TTFT metrics, and model switching by ID without code churn. Put budget & fallback policies here, not in app code.  ￼
+
+	3.	Backend & State
+
+	•	Use Convex as your single source of truth: store sessions, users, entitlements, chat threads, tool outputs, and materialized ERP snapshots for fast reads. Lean on reactive queries for live dashboards and Persistent Text Streaming for chat-like generation that also persists as it streams.  ￼
+
+	4.	Agents & Orchestration
+
+	•	Implement Mastra multi-agents with explicit tools for: ERP SQL, metrics retrieval, RAG over docs, anomaly detection, and “narration” (LLM). Mastra’s tool schema (Zod) + multi-step tool use makes this clean.  ￼
+
+Data flow (happy path)
+	1.	User asks: “What changed in Q3 receivables today vs last week?”
+	2.	AI SDK v5 sends a chat turn; tool calls are surfaced as typed functions.  ￼
+	3.	Mastra agent plans: (a) time-window ERP query → (b) compute deltas → (c) generate narrative. It calls tools you define (see below).  ￼
+	4.	Tools run on Convex: transactional reads from your ERP mirror, writes deltas/insights back.
+	5.	Model calls (LLM + embeddings) go via AI Gateway with retries/fallbacks; metrics (TTFT, tokens, cost) show up in the dashboard.  ￼
+	6.	Stream results to the UI using Convex persistent streaming so users see partial tokens while you persist the same text for history/audit.  ￼
+	7.	Live tiles in the UI subscribe to Convex queries; when fresh ERP data lands, the tiles update in place without manual cache invalidation.  ￼
+
+What to put where (clear division of labor)
+
+Frontend (AI SDK v5 + AI Components)
+	•	Chat state & message list; render partial tokens as they arrive.
+	•	Inline “insight blocks” (tables/charts/KPIs) as tool outputs, not just text.
+	•	Use streamText/new chat primitives; avoid DIY websockets.  ￼
+
+Gateway (AI Gateway)
+	•	One endpoint for all models (GPT-4.x, o-series, Claude, local, etc.).
+	•	Policies: hard per-user/day budgets; soft fallbacks (e.g., “try model A; on 429 → model B”).
+	•	Observe TTFT & cost to tune prompts and providers per workload.  ￼
+
+Backend (Convex)
+	•	Schemas: users, orgs, roles/entitlements; conversations, messages, tool_runs; erp_snapshots (hourly/day); metrics_series; alerts.
+	•	Realtime: subscriptions for tiles like “DSO today,” “Open POs,” “Cash burn.”
+	•	Jobs/cron: ingest ERP deltas, refresh aggregates, regenerate embeddings.
+	•	Streaming: use the Persistent Text Streaming component to stream and store generated narratives in a single pass.  ￼
+	•	Vector/text search (for RAG over policies, contracts, SKU notes) using built-ins before you reach for a separate vector DB.  ￼
+
+Agents (Mastra)
+Create explicit tools; make them boring and reliable:
+	•	get_metric(series, time_range, grouping) -> table
+	•	compare_periods(metric, period_a, period_b) -> stats
+	•	explain_delta(metric, drivers[]) -> text
+	•	erp_sql(query_id, params) -> rows (pre-approved SQL fragments only)
+	•	search_docs(query) -> passages (Convex vector search)
+	•	raise_alert(rule_id, payload)
+
+Mastra agents pick tools & params; your tool code runs on Convex, returning typed results that the UI can render directly (tables/charts), not just prose.  ￼
+
+Realtime + historical UX that actually feels “smart”
+	•	Two-pane pattern: left = chat; right = pinned insight tiles subscribed to the active conversation’s queries (Convex subscriptions). Ask a question → the relevant tile lights up and updates live during streaming.  ￼
+	•	Narrative + data parity: the same streamed text the user sees is persisted atomically with the computed tables you used to justify it (auditability). Persistent Text Streaming gives you that without bespoke glue.  ￼
+	•	Inline actions: every table/chart returned by a tool should come with “Drill down,” “Export,” “Notify me on change” (creates a Convex job + subscription).
+	•	Latency control: monitor Gateway TTFT; switch to a faster/cheaper model for descriptive summaries, keep premium models for planning/SQL gen.  ￼
+
+Data & ingestion strategy (ERP reality check)
+	•	Mirror, don’t tether: pull ERP deltas into Convex on a schedule + ad-hoc triggers; store normalized snapshots and rollups you actually query.
+	•	Materialize the top questions: precompute what users ask daily (AR aging, DSO, overdue POs, cash forecasts). Agents should hit these first, then fall back to ad-hoc queries.
+	•	Row-level permissions: join every query with org/user scopes; never let the agent form arbitrary SQL beyond whitelisted templates.
+	•	Temporal joins: make time a first-class key; historical comparisons should be O(1) over pre-bucketed series, not ad-hoc GROUP BYs at request time.
+
+Streaming patterns that won’t bite you
+	•	One stream, two stores: stream tokens to the UI while writing the same chunks to Convex; commit final metadata (cost, provider, tool plan) at finish. Use the Convex component so you don’t hand-roll SSE + persistence.  ￼
+	•	Backpressure: cap token rate per user via a Convex rate-limiter component; degrade to “summary mode” on mobile/poor networks.  ￼
+
+Observability & guardrails (non-negotiable)
+	•	Gateway dashboards: watch TTFT, token counts, model error rates, and cost per request; use the data to auto-route models by workload.  ￼
+	•	Trace the agent plan: log Mastra tool calls and their inputs/outputs in Convex for replayable audits.  ￼
+	•	Human-readable receipts: every insight message should carry a “receipt” panel: data sources + time windows + model + cost.
+	•	PII/finance safety: mask sensitive fields before they ever hit the model; keep a separate “redacted view” for LLM inputs.
+
+Skeleton you can follow
+	•	Frontend (server action / route handler)
+	1.	Receive user turn (AI SDK v5 typed input).
+	2.	Call Mastra agent with a tool-calling loop and a stream sink that writes to Convex’s persistent stream endpoint.  ￼
+	3.	For tool calls: invoke Convex functions; when a tool returns a table/series, push a “component event” to the UI (AI Elements) while also saving to Convex.  ￼
+	4.	All model calls go through AI Gateway; attach org/user tags for per-tenant budgets and analytics.  ￼
+	•	Convex
+	•	actions/ingest.ts: ERP delta pulls + schema validation.
+	•	queries/metrics.ts: typed, reactive read APIs for tiles.
+	•	mutations/alerts.ts: create/update alert rules.
+	•	components/persistent-text-streaming: stream/save narratives.  ￼
+	•	Mastra
+	•	agents/insights.ts: planner + tools registry; enable multi-step tool use and streaming.  ￼
+
+Gotchas (so you don’t learn the hard way)
+	•	Cold starts & TTFT: long TTFT kills perceived “real-time.” Use Gateway metrics to pick models with predictable TTFT; pre-warm if possible.  ￼
+	•	Ad-hoc SQL drift: never let the LLM write free-form SQL against ERP. Use named, parameterized queries; validate params server-side.
+	•	Inconsistent state in chat history: persist every assistant and tool message as you stream; don’t reconstruct from client memory. Use Convex’s transactional writes.  ￼
+	•	RSC streaming experimental: Vercel’s RSC streaming API is experimental; favor the production UI APIs/components for now.  ￼
+
+Where to iterate first (maximum UX upside)
+	1.	Insight Tiles that breathe: top 6 KPIs (cash, AR aging, overdue POs, inventory turns, bookings, burn) as live, subscribable tiles next to chat.  ￼
+	2.	“Why” button on every KPI: runs a Mastra tool chain to explain the delta with concrete drivers (customers, SKUs, geos), plus a one-paragraph narrative through the model (via Gateway).  ￼
+	3.	One-click alerts: convert any question into a saved rule; Convex cron checks the condition and posts back into the conversation thread when it fires.  ￼
+
+If you want, I can sketch concrete TypeScript scaffolding (schemas, tool signatures, and the streaming glue between AI SDK v5 → Gateway → Convex → Mastra) so you can paste it into a repo and start replacing stubs with your ERP connectors.

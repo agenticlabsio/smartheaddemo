@@ -1,0 +1,61 @@
+Error: Hydration failed because the server rendered HTML didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RedirectErrorBoundary router={{...}}>
+      <InnerLayoutRouter url="/chat" tree={[...]} cacheNode={{lazyData:null, ...}} segmentPath={[...]}>
+        <ClientPageRoot Component={function ChatPage} searchParams={{}} params={{}}>
+          <ChatPage params={Promise} searchParams={Promise}>
+            <Sidebar>
+              <div className="min-h-scre...">
+                <div className="bg-white b...">
+                  <div>
+                  <nav>
+                  <div className="p-4 border...">
+                    <div className="flex items...">
+                      <withClerk(UserButton) appearance={{elements:{...}}}>
+                        <UserButton appearance={{elements:{...}}} component="UserButton" clerk={{clerkjs:{...}, ...}}>
+                          <ClerkHostRenderer component="UserButton" mount={function} unmount={function} ...>
+                            <div
+                              ref={{current:null}}
++                             data-clerk-component="UserButton"
+-                             data-clerk-component={null}
+-                             className="flex-1 min-w-0"
+                            >
+-                             <div className="text-sm font-medium text-gray-900 truncate">
+-                             <div className="text-xs text-gray-500 truncate">
+                            ...
+                      ...
+                ...
+        ...
+
+    at throwOnHydrationMismatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:13311:11)
+    at popHydrationState (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:13449:9)
+    at completeWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:13744:17)
+    at runWithFiberInDEV (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:1511:30)
+    at completeUnitOfWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:15256:19)
+    at performUnitOfWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:15137:11)
+    at workLoopSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14944:41)
+    at renderRootSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14924:11)
+    at performWorkOnRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:14411:13)
+    at performSyncWorkOnRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:16290:7)
+    at flushSyncWorkAcrossRoots_impl (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:16138:21)
+    at flushPassiveEffects (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:15808:9)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:15367:15)
+    at MessagePort.performWorkUntilDeadline (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:45:48)
+    at div (<anonymous>)
+    at ClerkHostRenderer.render (webpack-internal:///(app-pages-browser)/./node_modules/@clerk/clerk-react/dist/chunk-3664V5SS.mjs:531:203)
+    at _UserButton.component (webpack-internal:///(app-pages-browser)/./node_modules/@clerk/clerk-react/dist/chunk-3664V5SS.mjs:658:230)
+    at HOC (webpack-internal:///(app-pages-browser)/./node_modules/@clerk/clerk-react/dist/chunk-KVSNHZPC.mjs:260:63)
+    at Sidebar (webpack-internal:///(app-pages-browser)/./components/ui/sidebar.tsx:208:108)
+    at ChatPage (webpack-internal:///(app-pages-browser)/./app/chat/page.tsx:12:87)
+    at ClientPageRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/client-page.js:20:50)

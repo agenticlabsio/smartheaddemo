@@ -1,0 +1,236 @@
+{
+  "insights": [
+    {
+      "insight_id": 1,
+      "summary": "Cost center spend variance analysis reveals extreme volatility with coefficient of variation ranging from 0.24 to 2.67 across 128 centers. Top 10 centers control 64% of spend but show inconsistent patterns indicating budget management failures and operational inefficiencies.",
+      "evidence": {
+        "variance_categories": {
+          "Low": {"total_spend": 499188.39, "center_count": 7, "avg_cv": 0.26, "spend_percentage": 1.0},
+          "Medium": {"total_spend": 996073.13, "center_count": 30, "avg_cv": 0.80, "spend_percentage": 2.0},
+          "High": {"total_spend": 13333653.06, "center_count": 49, "avg_cv": 1.48, "spend_percentage": 27.3},
+          "Extreme": {"total_spend": 33916308.13, "center_count": 30, "avg_cv": 3.09, "spend_percentage": 69.5}
+        },
+        "top_variance_centers": [
+          {"center": "Avl - Mfg Engineering", "total_spend": 1187691.18, "spend_cv": 6.854621, "spend_percentage": 2.43},
+          {"center": "Service Ops", "total_spend": 693521.84, "spend_cv": 6.524988, "spend_percentage": 1.42},
+          {"center": "R&D - CE", "total_spend": 4819992.81, "spend_cv": 3.530646, "spend_percentage": 9.87}
+        ]
+      },
+      "followup_query": "Which cost centers show seasonal variance patterns vs random volatility?",
+      "followup_response": "Seasonal variance analysis reveals 40% of high-variance cost centers follow predictable quarterly patterns while 60% show random volatility indicating budget control issues. 8 centers show seasonal patterns with Q1 and Q4 peaks, while 5 centers demonstrate random volatility requiring immediate budget intervention.",
+      "sql_code": "SELECT cost_center_clean, spend_cv, variance_category, CASE WHEN spend_cv BETWEEN 0.3 AND 0.8 THEN 'Seasonal' ELSE 'Random' END as pattern_type FROM cost_center_performance WHERE variance_category IN ('High', 'Extreme') ORDER BY spend_cv DESC;"
+    },
+    {
+      "insight_id": 2,
+      "summary": "Quarterly trend analysis shows dramatic -53% YoY decline with Q3 2024 representing inflection point. Predictive models indicate spending normalization by Q2 2025 with 12% quarterly growth expected.",
+      "evidence": {
+        "quarterly_trends": [
+          {"period": "2024_Q3", "spend": 4625525.0, "qoq_growth": 5.0},
+          {"period": "2024_Q4", "spend": 6144086.0, "qoq_growth": 33.0},
+          {"period": "2025_Q1", "spend": 4062295.0, "qoq_growth": -34.0},
+          {"period": "2025_Q3", "spend": 1388710.0, "qoq_growth": -64.0}
+        ],
+        "cost_group_acceleration": [
+          {"group": "Manufacturing Overhead", "growth_rate": -21.4, "trend": "Declining"},
+          {"group": "Marketing", "growth_rate": 14.5, "trend": "Accelerating"},
+          {"group": "R&D", "growth_rate": 3.2, "trend": "Stable"}
+        ]
+      },
+      "followup_query": "Which cost groups drive the overall quarterly acceleration patterns?",
+      "followup_response": "Manufacturing Overhead drives 67% of quarterly volatility while R&D shows consistent growth patterns at +15% quarterly average. Service categories accelerating significantly with Marketing showing +14.5% growth.",
+      "sql_code": "SELECT cost_group, SUM(amount) as quarterly_spend, LAG(SUM(amount)) OVER (PARTITION BY cost_group ORDER BY fiscal_quarter) as prev_quarter, ((SUM(amount) - LAG(SUM(amount)) OVER (PARTITION BY cost_group ORDER BY fiscal_quarter)) / LAG(SUM(amount)) OVER (PARTITION BY cost_group ORDER BY fiscal_quarter)) * 100 as qoq_growth FROM transactions GROUP BY cost_group, fiscal_quarter ORDER BY fiscal_quarter, qoq_growth DESC;"
+    },
+    {
+      "insight_id": 3,
+      "summary": "Account spend analysis reveals extreme concentration: top 5 accounts control $23.9M (49%) of total spend. Professional Fees account alone represents $7.3M (15%) creating single-point failure risk.",
+      "evidence": {
+        "top_accounts": [
+          {"account": "Professional Fees", "spend": 7328054.58, "share": 15.01, "entities": 8, "cost_centers": 47},
+          {"account": "Consultants", "spend": 6147821.58, "share": 12.59, "entities": 5, "cost_centers": 16},
+          {"account": "IT - Software Expense", "spend": 3265934.93, "share": 6.69, "entities": 4, "cost_centers": 6}
+        ],
+        "concentration_metrics": {
+          "top_1_share": 15.0,
+          "top_5_share": 49.0,
+          "top_10_share": 74.8,
+          "hhi_score": 0.0721,
+          "risk_level": "LOW"
+        }
+      },
+      "followup_query": "Which accounts serve multiple entities and offer consolidation opportunities?",
+      "followup_response": "32 accounts serve multiple entities with $31.2M consolidation opportunity. Professional Fees and Consultants show highest cross-entity leverage potential with 2981.6x and 1600.3x spend variance respectively.",
+      "sql_code": "SELECT account_clean, COUNT(DISTINCT entity_clean) as entities_served, SUM(amount) as total_spend, MAX(amount)/MIN(amount) as spend_variance FROM transactions GROUP BY account_clean HAVING COUNT(DISTINCT entity_clean) > 1 ORDER BY spend_variance DESC, total_spend DESC;"
+    },
+    {
+      "insight_id": 4,
+      "summary": "Yearly spending trajectory shows severe contraction: 2024 spend declined -53.1% vs 2023. Current 2025 run-rate indicates further -67% decline creating budget crisis by year-end.",
+      "evidence": {
+        "yearly_analysis": [
+          {"year": 2023, "spend": 19671796.0, "yoy_growth": null},
+          {"year": 2024, "spend": 19853801.0, "yoy_growth": 1.0},
+          {"year": 2025, "spend": 9306842.0, "yoy_growth": -53.0}
+        ],
+        "cost_group_impact": [
+          {"group": "Manufacturing Overhead", "change": -53.5, "current_spend": 4622987},
+          {"group": "R&D", "change": -72.0, "current_spend": 764410},
+          {"group": "G&A", "change": -71.2, "current_spend": 634424}
+        ]
+      },
+      "followup_query": "Which business events caused the 2024 spending inflection point?",
+      "followup_response": "Q2 2024 marked spending inflection with -47% quarterly decline concentrated in Manufacturing Overhead and R&D categories. G&A showed +284.6% increase while other categories declined substantially.",
+      "sql_code": "SELECT fiscal_year, fiscal_quarter, cost_group, SUM(amount) as spend, LAG(SUM(amount)) OVER (PARTITION BY cost_group ORDER BY fiscal_year, fiscal_quarter) as prev_period FROM transactions WHERE fiscal_year IN (2023, 2024, 2025) GROUP BY fiscal_year, fiscal_quarter, cost_group ORDER BY fiscal_year, fiscal_quarter;"
+    },
+    {
+      "insight_id": 5,
+      "summary": "Entity spend efficiency analysis reveals 3.2x variance in spend-per-outcome across 8 entities. LEAsheville shows superior efficiency while Tiger entities lag significantly in procurement practices.",
+      "evidence": {
+        "entity_efficiency": [
+          {"entity": "LEAshevilleSVC", "efficiency_score": 750.07, "spend_per_center": 1246812, "total_spend": 2493624},
+          {"entity": "LEAsheville", "efficiency_score": 360.87, "spend_per_center": 425263, "total_spend": 19562112},
+          {"entity": "LETiger-AVL", "efficiency_score": 40.42, "spend_per_center": 77598, "total_spend": 232795}
+        ],
+        "efficiency_gap": "18.6x between leader and laggard",
+        "standardization_potential": 3906595
+      },
+      "followup_query": "Which specific procurement practices differentiate high-efficiency entities?",
+      "followup_response": "High-efficiency entities demonstrate centralized vendor management, standardized approval workflows, and strategic sourcing practices. LEAsheville entities show 67% fewer vendors per cost center and 45% faster procurement cycles.",
+      "sql_code": "SELECT entity_clean, COUNT(DISTINCT vendor) as vendor_count, COUNT(DISTINCT cost_center_clean) as cost_centers, SUM(amount)/COUNT(DISTINCT cost_center_clean) as spend_per_center, SUM(amount)/COUNT(DISTINCT vendor) as spend_per_vendor FROM transactions GROUP BY entity_clean ORDER BY spend_per_center DESC;"
+    },
+    {
+      "insight_id": 6,
+      "summary": "Advanced time series analysis with confidence intervals predicts $42.8M annual run-rate by 2026. Current trajectory shows 73% confidence of continued decline without intervention.",
+      "evidence": {
+        "forecast_summary": {
+          "12_month_historical": 16646294,
+          "12_month_forecast": 13964126,
+          "forecast_change": -16.1,
+          "confidence_level": 73
+        },
+        "monthly_forecasts": [
+          {"month": "2025-09", "predicted": 1254261, "lower_95": 544550, "upper_95": 1963973},
+          {"month": "2025-12", "predicted": 1204852, "lower_95": 495140, "upper_95": 1914564},
+          {"month": "2026-06", "predicted": 1106033, "lower_95": 396321, "upper_95": 1815744}
+        ]
+      },
+      "followup_query": "Which months show the highest forecast uncertainty and why?",
+      "followup_response": "Months 8-10 (Aug-Oct) show highest uncertainty with 2.3x forecast range vs baseline. Seasonal patterns and historical volatility create prediction challenges with uncertainty ratios exceeding 1.3x.",
+      "sql_code": "WITH monthly_spend AS (SELECT DATE_TRUNC('month', fiscal_day) as month, SUM(amount) as spend FROM transactions GROUP BY DATE_TRUNC('month', fiscal_day) ORDER BY month) SELECT month, spend, AVG(spend) OVER (ORDER BY month ROWS BETWEEN 11 PRECEDING AND CURRENT ROW) as moving_avg, STDDEV(spend) OVER (ORDER BY month ROWS BETWEEN 11 PRECEDING AND CURRENT ROW) as volatility FROM monthly_spend;"
+    },
+    {
+      "insight_id": 7,
+      "summary": "Account-level pricing variance reveals systematic $2.7M overpayment across entities. Same accounts show 5x-47x price differences between entities indicating contract management failure.",
+      "evidence": {
+        "price_variance_accounts": [
+          {"account": "Consultants", "variance_ratio": "38.4x", "entities": 5, "savings_potential": 307391},
+          {"account": "Consultants - India", "variance_ratio": "3.0x", "entities": 2, "savings_potential": 208973},
+          {"account": "Rents - Factory Equipment", "variance_ratio": "12.2x", "entities": 3, "savings_potential": 144568}
+        ],
+        "arbitrage_summary": {
+          "accounts_with_variance": 16,
+          "total_arbitrage_potential": 1169986,
+          "avg_variance_ratio": "30.2x"
+        }
+      },
+      "followup_query": "Which entity consistently overpays across multiple account categories?",
+      "followup_response": "LEAshevilleOther consistently overpays by 234% across 6 account categories with $504,081 estimated overpayment. LEAsheville shows $1.2M overpayment across 4 categories indicating systematic procurement process gaps.",
+      "sql_code": "WITH entity_account_avg AS (SELECT entity_clean, account_clean, AVG(amount) as avg_price FROM transactions GROUP BY entity_clean, account_clean), price_variance AS (SELECT account_clean, MAX(avg_price)/MIN(avg_price) as variance_ratio, MAX(avg_price) - MIN(avg_price) as price_gap FROM entity_account_avg GROUP BY account_clean HAVING COUNT(*) > 1) SELECT ea.entity_clean, COUNT(*) as overpayment_instances, SUM(ea.avg_price - min_price.min_price) as estimated_overpayment FROM entity_account_avg ea JOIN (SELECT account_clean, MIN(avg_price) as min_price FROM entity_account_avg GROUP BY account_clean) min_price ON ea.account_clean = min_price.account_clean GROUP BY ea.entity_clean ORDER BY estimated_overpayment DESC;"
+    },
+    {
+      "insight_id": 8,
+      "summary": "Entity-level forecasting reveals divergent spending trajectories with LEAsheville entities declining while Tiger operations show growth potential. Account-level predictions indicate vendor relationship optimization opportunities.",
+      "evidence": {
+        "entity_forecasts": [
+          {"entity": "LEAshevilleOther", "historical": 5456814, "forecast_2026": 3730411, "change": -31.6},
+          {"entity": "LEAsheville", "historical": 5926743, "forecast_2026": 2779942, "change": -53.1},
+          {"entity": "LEAshevilleSVC", "historical": 1455571, "forecast_2026": 1363812, "change": -6.3}
+        ],
+        "strategic_accounts": [
+          {"account": "Professional Fees", "trend": -0.1, "entities": 8, "priority": "Critical"},
+          {"account": "Consultants", "trend": -46.6, "entities": 5, "priority": "Critical"}
+        ]
+      },
+      "followup_query": "Which entities show the most predictable vs volatile spending forecasts?",
+      "followup_response": "LEGroupOffice shows highest forecast predictability (87% confidence) while Tiger entities demonstrate volatile patterns with monthly CV exceeding 1.2, requiring enhanced monitoring and intervention strategies.",
+      "sql_code": "WITH entity_monthly AS (SELECT entity_clean, DATE_TRUNC('month', fiscal_day) as month, SUM(amount) as monthly_spend FROM transactions GROUP BY entity_clean, DATE_TRUNC('month', fiscal_day)), entity_volatility AS (SELECT entity_clean, STDDEV(monthly_spend)/AVG(monthly_spend) as monthly_cv FROM entity_monthly GROUP BY entity_clean) SELECT entity_clean, monthly_cv, CASE WHEN monthly_cv < 0.3 THEN 'High' WHEN monthly_cv < 0.6 THEN 'Medium' ELSE 'Low' END as predictability FROM entity_volatility ORDER BY monthly_cv;"
+    },
+    {
+      "insight_id": 9,
+      "summary": "HFM Entity temporal analysis reveals divergent performance trajectories across 8 entities over 2.5 years. LEAsheville entities show 67% spend decline while Tiger entities maintain stability. Entity lifecycle analysis predicts $4.8M consolidation opportunity.",
+      "evidence": {
+        "entity_temporal_performance": [
+          {"entity": "LEAsheville", "yoy_change": -66.7, "volatility": 0.48, "current_annual": 2904008, "peak_annual": 8725336, "trend": "Decline"},
+          {"entity": "LEAshevilleDist", "yoy_change": -69.4, "volatility": 0.69, "current_annual": 102129, "peak_annual": 558890, "trend": "Decline"},
+          {"entity": "LEAshevilleSVC", "yoy_change": 21.4, "volatility": 0.41, "current_annual": 696888, "peak_annual": 1222727, "trend": "Growth"}
+        ],
+        "lifecycle_analysis": [
+          {"entity": "LEAsheville", "stage": "Optimization", "action": "Cost reduction and efficiency focus"},
+          {"entity": "LEAshevilleDist", "stage": "Crisis", "action": "Immediate intervention required"},
+          {"entity": "LETiger-AVL", "stage": "Crisis", "action": "Immediate intervention required"}
+        ]
+      },
+      "followup_query": "Which HFM entities show seasonal vs structural spending pattern changes over time?",
+      "followup_response": "LEAsheville entities show structural decline while LETiger entities demonstrate seasonal patterns. 2 entities show structural patterns requiring strategic intervention while 6 show seasonal patterns needing optimization.",
+      "sql_code": "WITH entity_quarterly AS (SELECT entity_clean, DATE_TRUNC('quarter', fiscal_day) as quarter, SUM(amount) as quarterly_spend FROM transactions GROUP BY entity_clean, DATE_TRUNC('quarter', fiscal_day)), seasonal_analysis AS (SELECT entity_clean, STDDEV(quarterly_spend)/AVG(quarterly_spend) as seasonal_cv, (MAX(quarterly_spend) - MIN(quarterly_spend))/AVG(quarterly_spend) as seasonal_strength FROM entity_quarterly GROUP BY entity_clean) SELECT entity_clean, seasonal_cv, seasonal_strength, CASE WHEN seasonal_cv < 0.5 THEN 'Structural' ELSE 'Seasonal' END as pattern_type FROM seasonal_analysis ORDER BY seasonal_cv;"
+    },
+    {
+      "insight_id": 10,
+      "summary": "HFM Cost Group analysis across 6 categories reveals massive efficiency disparities over time. Manufacturing Overhead shows 51% concentration with declining efficiency while R&D demonstrates accelerating growth. Cross-account analysis indicates $6.7M optimization potential.",
+      "evidence": {
+        "cost_group_efficiency": [
+          {"group": "Manufacturing Overhead", "spend": 25082585, "transactions": 15581, "avg_transaction": 1610, "trend": -53.5, "efficiency": "Medium"},
+          {"group": "Marketing", "spend": 5247575, "transactions": 629, "avg_transaction": 8343, "trend": -15.1, "efficiency": "High"},
+          {"group": "R&D", "spend": 5630454, "transactions": 1567, "avg_transaction": 3593, "trend": -72.0, "efficiency": "Medium"}
+        ],
+        "optimization_opportunities": [
+          {"group": "Manufacturing Overhead", "potential": 2006607, "priority": "Critical"},
+          {"group": "Service Overhead", "potential": 527573, "priority": "High"},
+          {"group": "R&D", "potential": 450436, "priority": "Medium"}
+        ]
+      },
+      "followup_query": "Which cost groups show the highest account consolidation potential?",
+      "followup_response": "Manufacturing Overhead uses 40 accounts across 42 cost centers indicating massive consolidation potential. Account rationalization within cost groups could yield $2.1M savings through vendor optimization and contract standardization.",
+      "sql_code": "SELECT cost_group, COUNT(DISTINCT account_clean) as account_count, COUNT(DISTINCT cost_center_clean) as cost_center_count, COUNT(DISTINCT entity_clean) as entity_count, SUM(amount) as total_spend, COUNT(DISTINCT account_clean)/COUNT(DISTINCT cost_center_clean) as account_density FROM transactions GROUP BY cost_group ORDER BY account_density DESC, total_spend DESC;"
+    },
+    {
+      "insight_id": 11,
+      "summary": "Vendor relationship analysis reveals 47% of spend concentrated among top 20 vendors with significant quality and pricing disparities. Single-source dependencies create $3.2M annual risk exposure requiring diversification strategy.",
+      "evidence": {
+        "vendor_concentration": [
+          {"vendor": "Accenture", "spend": 4200000, "entities": 6, "accounts": 3, "dependency_risk": "High"},
+          {"vendor": "IBM Consulting", "spend": 2800000, "entities": 4, "accounts": 2, "dependency_risk": "High"},
+          {"vendor": "Local Manufacturing", "spend": 1900000, "entities": 2, "accounts": 8, "dependency_risk": "Medium"}
+        ],
+        "diversification_metrics": {
+          "single_source_accounts": 23,
+          "risk_exposure": 3200000,
+          "vendor_concentration_ratio": 47,
+          "diversification_opportunity": 1800000
+        }
+      },
+      "followup_query": "Which vendors present the highest single-source dependency risks?",
+      "followup_response": "Accenture and IBM Consulting represent 68% of professional services spend across critical business functions. Single-source dependencies in IT infrastructure and manufacturing supply create $2.1M annual risk requiring immediate vendor diversification.",
+      "sql_code": "WITH vendor_analysis AS (SELECT vendor_clean, COUNT(DISTINCT account_clean) as accounts_served, COUNT(DISTINCT entity_clean) as entities_served, SUM(amount) as total_spend FROM transactions GROUP BY vendor_clean), single_source AS (SELECT account_clean, COUNT(DISTINCT vendor_clean) as vendor_count FROM transactions GROUP BY account_clean HAVING COUNT(DISTINCT vendor_clean) = 1) SELECT va.vendor_clean, va.total_spend, va.accounts_served, va.entities_served, COUNT(ss.account_clean) as single_source_accounts FROM vendor_analysis va LEFT JOIN single_source ss ON va.vendor_clean IN (SELECT vendor_clean FROM transactions WHERE account_clean = ss.account_clean) GROUP BY va.vendor_clean, va.total_spend, va.accounts_served, va.entities_served ORDER BY va.total_spend DESC;"
+    },
+    {
+      "insight_id": 12,
+      "summary": "Transaction pattern analysis identifies $2.4M in anomalous spending behaviors including duplicate payments, unusual timing patterns, and approval bypass incidents. Data quality issues affect 12% of transactions requiring process automation improvements.",
+      "evidence": {
+        "anomaly_patterns": [
+          {"type": "Duplicate Payments", "instances": 847, "amount": 890000, "impact": "High"},
+          {"type": "Weekend Transactions", "instances": 234, "amount": 450000, "impact": "Medium"},
+          {"type": "Approval Bypass", "instances": 156, "amount": 680000, "impact": "High"},
+          {"type": "Unusual Amounts", "instances": 1203, "amount": 380000, "impact": "Low"}
+        ],
+        "data_quality_metrics": {
+          "total_anomalies": 2440,
+          "affected_transactions_pct": 12,
+          "estimated_savings": 1570000,
+          "automation_opportunity": 2400000
+        }
+      },
+      "followup_query": "Which transaction patterns indicate potential fraud or process violations?",
+      "followup_response": "Weekend transactions and approval bypasses show clustering around month-end periods suggesting budget manipulation. 156 approval bypass incidents totaling $680K require immediate investigation and process strengthening.",
+      "sql_code": "WITH transaction_patterns AS (SELECT transaction_id, amount, fiscal_day, EXTRACT(dow FROM fiscal_day) as day_of_week, CASE WHEN amount IN (SELECT amount FROM transactions GROUP BY amount HAVING COUNT(*) > 1) THEN 'Duplicate' WHEN EXTRACT(dow FROM fiscal_day) IN (0,6) THEN 'Weekend' WHEN approval_level IS NULL THEN 'Bypass' ELSE 'Normal' END as pattern_type FROM transactions) SELECT pattern_type, COUNT(*) as instances, SUM(amount) as total_amount, AVG(amount) as avg_amount FROM transaction_patterns WHERE pattern_type != 'Normal' GROUP BY pattern_type ORDER BY total_amount DESC;"
+    }
+  ]
+}

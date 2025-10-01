@@ -1,0 +1,99 @@
+Error: A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <InnerScrollAndFocusHandler segmentPath={[...]} focusAndScrollRef={{apply:false, ...}}>
+      <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+        <LoadingBoundary loading={null}>
+          <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+            <RedirectBoundary>
+              <RedirectErrorBoundary router={{...}}>
+                <InnerLayoutRouter url="/insights-..." tree={[...]} cacheNode={{lazyData:null, ...}} segmentPath={[...]}>
+                  <ClientPageRoot Component={function InsightsCenterPage} searchParams={{}} params={{}}>
+                    <InsightsCenterPage params={Promise} searchParams={Promise}>
+                      <Sidebar>
+                        <div className="min-h-scre...">
+                          <div>
+                          <div className="flex-1 fle...">
+                            <header>
+                            <main className="flex-1 ove...">
+                              <div
+                                className="p-6 max-w-7xl mx-auto space-y-6"
+-                               data-np-autofill-form-type="other"
+-                               data-np-checked="1"
+-                               data-np-watching="1"
+                              >
+                                <div>
+                                <div className="flex flex-...">
+                                  <div className="flex-1 rel...">
+                                    <Search>
+                                    <Input placeholder="Search ins..." value="" onChange={function onChange} ...>
+                                      <input
+                                        type={undefined}
+                                        data-slot="input"
+                                        className="file:text-foreground placeholder:text-muted-foreground selection:bg..."
+                                        placeholder="Search insights by title, category, or tags..."
+                                        value=""
+                                        onChange={function onChange}
+-                                       data-np-intersection-state="visible"
+                                      >
+                                  ...
+                                ...
+                                  <CardContent>
+                                    <div data-slot="card-content" className="px-6">
+                                      <EnhancedDataTable columns={[...]} data={[...]} searchKey="title" ...>
+                                        <div
+                                          className="space-y-4"
+-                                         data-np-autofill-form-type="other"
+-                                         data-np-checked="1"
+-                                         data-np-watching="1"
+                                        >
+                                          <div className="flex items...">
+                                            <div className="flex flex-...">
+                                              <div className="relative w-64">
+                                                <Search>
+                                                <Input placeholder="Search ins..." value="" onChange={function onChange} ...>
+                                                  <input
+                                                    type={undefined}
+                                                    data-slot="input"
+                                                    className="file:text-foreground placeholder:text-muted-foreground ..."
+                                                    placeholder="Search insights..."
+                                                    value=""
+                                                    onChange={function onChange}
+-                                                   data-np-intersection-state="visible"
+                                                  >
+                                              ...
+                                            ...
+                                          ...
+                  ...
+
+    at createUnhandledError (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_client_43e3ffb8._.js:879:71)
+    at handleClientError (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_client_43e3ffb8._.js:1052:56)
+    at console.error (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_client_43e3ffb8._.js:1191:56)
+    at https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:9382:25
+    at runWithFiberInDEV (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:3501:74)
+    at emitPendingHydrationWarnings (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:9381:13)
+    at completeWork (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:9602:32)
+    at runWithFiberInDEV (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:3501:74)
+    at completeUnitOfWork (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10233:23)
+    at performUnitOfWork (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10170:28)
+    at workLoopSync (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10060:40)
+    at renderRootSync (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10043:13)
+    at performWorkOnRoot (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:9784:212)
+    at performSyncWorkOnRoot (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10804:9)
+    at flushSyncWorkAcrossRoots_impl (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10724:316)
+    at processRootScheduleInMicrotask (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10744:9)
+    at https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_next_dist_compiled_2ce9398a._.js:10815:158
+    at input (<anonymous>)
+    at Input (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/_674ab260._.js:662:214)
+    at InsightsCenterPage (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/_674ab260._.js:6119:235)
+    at ClientPageRoot (https://39d263ea-70ea-4ff8-8a18-8caf2ad0c8fe-00-1ne3sa8eiu7t1.riker.replit.dev/_next/static/chunks/node_modules_650c3386._.js:19659:50)
