@@ -117,7 +117,7 @@ export default function HomePage() {
               {isSignedIn ? (
                 <>
                   <span className="text-sm text-gray-600 hidden md:block font-medium">
-                    {user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'User'}
+                    {(user as any)?.firstName || (user as any)?.emailAddresses?.[0]?.emailAddress || 'User'}
                   </span>
                   <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
                     <Link href="/dashboard">Dashboard</Link>

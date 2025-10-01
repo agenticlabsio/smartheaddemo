@@ -1,67 +1,201 @@
-# FinSight - Advanced Financial Transaction Analysis Platform
+# ProcureIQ Platform - AI-Powered Procurement Intelligence
 
 ## Overview
-FinSight is a comprehensive financial transaction analysis platform leveraging semantic search, vector embeddings, and specialized AI agents. Its purpose is to provide intelligent financial data analysis through a conversational interface, backed by PostgreSQL and advanced semantic catalog technology. The platform aims to revolutionize financial data analysis by offering conversational intelligence, detailed financial transaction insights, and interactive visualizations to aid strategic decision-making.
+
+ProcureIQ is an enterprise SaaS platform for procurement intelligence and analytics. The platform provides AI-powered insights, automated data analysis, and real-time procurement intelligence for organizations managing large-scale spending ($52M+ annual procurement). Built with Next.js 15, React 19, and modern TypeScript, it offers a comprehensive suite of tools for procurement teams including insights approval workflows, AI chat assistance, data catalog management, and live support capabilities.
+
+The platform serves enterprise clients with complex procurement needs across multiple facilities, cost centers, and supplier networks, focusing on risk management, spend optimization, and data-driven decision making.
 
 ## User Preferences
-I want to interact with the AI through a conversational interface. I prefer rich formatted responses with markdown rendering and interactive visualizations like bar charts and pie charts. I appreciate intelligent next-step recommendations and follow-up suggestions based on query context. The system should track my preferences for data format, analysis depth, and visualization style across sessions. I also expect real-time metadata like execution time, confidence scores, and model tracking with each response. I prefer a system that assesses my expertise level and adapts its interaction style accordingly.
+
+Preferred communication style: Simple, everyday language.
 
 ## System Architecture
-The platform is built with Next.js 15.2.4 (TypeScript) and uses PostgreSQL with the `pgvector` extension for semantic search. AI integration relies primarily on Gemini 2.5 Flash, with OpenAI GPT-4o Mini as a fallback. A custom semantic catalog, inspired by TimescaleDB pgai, is implemented with Google embeddings for intelligent querying. The UI is developed using Radix UI components, Tailwind CSS, and Recharts for data visualizations. The frontend serves on port 5000.
 
-**Key Architectural Decisions:**
-- **Advanced Data Agent:** Utilizes Gemini 2.5 Flash as the primary model for text-to-SQL financial transaction analysis, providing executive summaries, SQL analysis, and business insights. It includes a multi-model fallback system and semantic querying with automatic prompt routing.
-- **Semantic Catalog System:** Provides database schema awareness, incorporates critical business constraints, and uses vector search for semantic retrieval of relevant context, integrating financial transaction domain knowledge.
-- **Enhanced Conversational Intelligence:** Features context-aware memory, intelligent agent routing (Coupa, Baan, or combined agents), user learning and adaptation, contextual insights, follow-up suggestions, and persistent preference tracking.
-- **Enhanced Database Layer:** Supports multi-dataset (financial and transaction data) with PostgreSQL and `pgvector`. It includes conversation intelligence tables for user profiles, conversation episodes, and context tracking, along with financial data aggregation functions.
-- **Enhanced AI Agent Layer:** Comprises a Context-Aware Agent for memory and learning, a Smart Agent Router for query classification, specialized Coupa Financial and Baan Financial Transaction Agents, and a Conversation Context Manager.
-- **Enhanced API Endpoints:** Includes `/api/agent` for conversational analytics, `/api/semantic-catalog` for management and search, `/api/embeddings/generate` for vector generation, and `/api/database/setup` for initialization.
-- **UI/UX Decisions:** Implements a ChatGPT-style collapsible interface for chat history, professional sidebar design, and an artifact-style response system inspired by Claude.ai for presenting structured information.
-- **Performance Optimization:** Incorporates Redis Caching Infrastructure for queries, conversations, embeddings, and chart configurations, resulting in significantly faster response times.
-- **File Upload & Processing:** A complete pipeline for chart analysis, CSV processing, and document extraction, utilizing multimodal AI analysis via object storage.
-- **LangGraph Memory Framework:** Advanced memory management supporting semantic, episodic, and procedural memory for cross-session persistence and user learning.
-- **Visualization:** Integrates an advanced visualization and evidence system with automatic chart type selection (bar, pie, line, scatter), AI-generated insights, and production-ready frontend components using Recharts.
+### Frontend Architecture
+
+**Framework & Core Technologies**
+- Next.js 15.2.4 with App Router architecture for server-side rendering and routing
+- React 19 with Server Components for optimal performance
+- TypeScript with strict type checking for type safety
+- Tailwind CSS with custom design system using CSS variables for theming
+
+**UI Component System**
+- Radix UI primitives for accessible, unstyled components (Dialog, Dropdown, Select, Tabs, etc.)
+- Custom component library built with class-variance-authority for variant management
+- shadcn/ui configuration for consistent component patterns
+- Responsive design with mobile-first approach
+
+**State Management & Data Flow**
+- Client-side state using React hooks (useState, useRef, useEffect)
+- No global state management library (Redux/Zustand) - using React's built-in capabilities
+- Real-time streaming responses for AI chat interactions
+- Optimistic UI updates for better user experience
+
+**Design System**
+- Professional SaaS color palette with dual theme support (light/dark)
+- Custom CSS variables for colors, typography, and spacing
+- Geist font family for sans-serif, Manrope for display text
+- Consistent 0.5rem border radius across components
+
+### Backend Architecture
+
+**API Structure**
+- Next.js API Routes for serverless functions
+- RESTful endpoints organized by feature domain:
+  - `/api/chat` - AI chat and conversation management
+  - `/api/insights` - Procurement insights and recommendations
+  - `/api/data-catalog` - Data source and table metadata
+  - `/api/mcp` - Model Context Protocol tool execution
+  - `/api/settings` - User preferences and configuration
+
+**AI Integration**
+- Vercel AI SDK with OpenAI GPT-4o model for chat interactions
+- Streaming text responses for real-time user experience
+- System prompts configured for procurement domain expertise
+- Context-aware responses with enterprise spending data ($52M+ contexts)
+
+**Data Layer**
+- Mock data layer for development/demonstration (lib/mock-data.ts)
+- Structured data models for procurement metrics, suppliers, facilities
+- No database implementation currently - data served from in-memory structures
+- Vercel Blob storage for chat history persistence
+
+**Model Context Protocol (MCP) Client**
+- Custom MCP implementation for structured AI tool access
+- SQL query execution tools for procurement database access
+- Tool registry with parameter validation and metadata
+- Connection management for multiple data sources
+- Execution tracking with performance metrics
+
+### Authentication & Authorization
+
+**Clerk Integration**
+- Clerk for complete authentication solution
+- Protected routes using Clerk middleware
+- Route protection patterns:
+  - Public: Landing page (`/`)
+  - Protected: Dashboard, AI Assistant, Insights, Data Catalog, Settings
+- Automatic redirect logic (authenticated users → dashboard)
+- User session management and profile integration
+- Sign-in/Sign-up modal flows
+
+**Middleware Strategy**
+- Custom middleware (middleware.ts) for route protection
+- Route matchers for identifying protected paths
+- Authenticated user redirection from home to dashboard
+- Integration with Next.js middleware chain
+
+### Data Storage & Persistence
+
+**Vercel Blob Storage**
+- Chat conversation persistence using Vercel Blob
+- JSON-based chat data structure with metadata
+- File naming convention: `chats/{chatId}-{timestamp}.json`
+- CRUD operations: save, load, delete chat histories
+- Public access pattern for blob URLs
+
+**Data Models**
+- Chat messages with role-based typing (user/assistant/system)
+- Insights with approval workflow states (pending/approved/rejected)
+- Supplier data with risk levels and spend metrics
+- Facility and cost center hierarchies
+- Mock procurement metrics for $52.3M total spend scenario
+
+**No Traditional Database**
+- Currently no SQL/NoSQL database implementation
+- All data served from mock data structures
+- Designed for future database integration (Drizzle ORM references in architecture)
+- Blob storage as interim persistence layer
+
+### Key Features & Modules
+
+**Insights Approval Workflow**
+- AI-generated procurement insights with confidence scores
+- Multi-state approval process (pending → approved/rejected)
+- Priority-based categorization (High/Medium/Low)
+- Impact quantification with financial metrics
+- Data source attribution and lineage tracking
+
+**AI Chat Assistant**
+- Natural language query interface for procurement data
+- Streaming responses with real-time updates
+- Context-aware responses with domain expertise
+- Chat history persistence and session management
+- Multiple conversation support
+
+**Data Catalog**
+- Comprehensive data source registry
+- Table-level metadata and lineage information
+- Column schemas with classification levels
+- Data ownership and governance tracking
+- Update frequency and sync status monitoring
+
+**Dashboard & Analytics**
+- Executive metrics overview ($52.3M spend, 1,247 suppliers)
+- Quick-start onboarding flow for new users
+- Status indicators for pending insights and approvals
+- Navigation to key platform features
 
 ## External Dependencies
-- **Database:** PostgreSQL with `pgvector` extension.
-- **AI Models:** Google Gemini 2.5 Flash (primary), OpenAI GPT-4o Mini (fallback).
-- **Embeddings:** Google embeddings.
-- **Caching:** Redis.
-- **Object Storage:** Replit object storage.
 
-## Design System & UI/UX Standards
-The platform follows strict UI/UX guidelines documented in `docs/ui-ux-guidelines.md`. All components and features are built according to these accessibility, performance, and design standards including:
-- Full keyboard navigation and ARIA compliance
-- Mobile-first responsive design with proper touch targets
-- Performance-optimized animations and interactions
-- Accessible color contrast and visual indicators
-- Professional enterprise-grade visual design
-- Form validation and error handling best practices
-- Consistent navigation patterns and state management
+### Third-Party Services
 
-## Recent Performance Enhancements (September 2025)
-- **Streaming AI Architecture:** Implemented real-time GPT-5 Mini streaming with reasoning traces for immediate user feedback
-- **Intelligent Follow-up Queries:** Dynamic contextual suggestions at top of chat interface
-- **Unified Evidence System:** Consistent 3-tab evidence display (Data, Visualize, Debug) across all pages
-- **Deep Dive Integration:** Seamless navigation from Insights Center to chat with auto-populated queries
-- **Frontend Optimization:** React Query caching, lazy loading, code splitting, and bundle optimization for 40% performance improvement
-- **Chat UI Improvements (September 28, 2025):** Successfully implemented ChatGPT-style centered layout with welcome intro when no messages exist, relocated follow-up queries to appear after assistant responses, resolved compilation errors, and ensured proper backend integration with streaming support.
+**Authentication**
+- Clerk (via @clerk/nextjs) - Complete authentication and user management solution
+- Environment variable required: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 
-## Enhanced Agentic Architecture (September 29, 2025) - **VERIFIED COMPLETE ✅**
-**Accuracy Improvement: 65% → 90% (+25% enhancement)**
+**AI & ML Services**
+- OpenAI GPT-4o (via @ai-sdk/openai) - AI chat and analysis capabilities
+- Vercel AI SDK (ai package) - Streaming responses and AI utilities
+- Zod for schema validation and type safety
 
-Successfully transformed FinSight from shallow role heuristics and mock data workflows into a sophisticated enterprise-grade multi-agent collaborative framework:
+**Storage & Infrastructure**
+- Vercel Blob (@vercel/blob) - Chat history and file storage
+- Environment variable required: `BLOB_READ_WRITE_TOKEN`
+- Vercel platform for deployment and hosting
 
-**✅ ReflectionOrchestrator** - Multi-stage reflective analysis pipeline with planning → memory integration → analysis → validation → self-critique → synthesis
-**✅ RealFinancialService** - **Completely replaced mock workflows** with real SQL-based financial analysis (no more "Global Supply Co" fake data)
-**✅ Enhanced Memory Integration** - Sophisticated contextual knowledge retrieval, user profiling, query classification, and episodic/semantic fact management
-**✅ SQLToolFramework** - Advanced SQL generation with context awareness, multi-level validation, AI-powered error correction, and safe execution
-**✅ CollaborativeAgentFramework** - 5 specialized expert agents with self-critique, peer review, confidence scoring, and consensus building
-**✅ IntelligentAgentRouter** - Multi-dimensional query complexity analysis, user context profiling, and sophisticated agent selection optimization
+### UI & Component Libraries
 
-**Verification Results (7/7 Tests Passed):**
-- Architecture Components: All key components properly structured and integrated
-- Real Data Integration: Mock workflows successfully replaced with SQL-based analysis
-- Memory Enhancement: Contextual knowledge and conversation intelligence implemented
-- Collaborative Intelligence: Multi-agent patterns with peer review and consensus building
-- Intelligent Routing: Sophisticated query analysis and agent optimization active
+**Radix UI Primitives**
+- @radix-ui/react-accordion, react-alert-dialog, react-avatar
+- @radix-ui/react-checkbox, react-dialog, react-dropdown-menu
+- @radix-ui/react-label, react-popover, react-progress
+- @radix-ui/react-scroll-area, react-select, react-separator
+- @radix-ui/react-slot, react-switch, react-tabs
+- @radix-ui/react-toast, react-tooltip
+
+**Styling & Icons**
+- Tailwind CSS with tailwindcss-animate for animations
+- Lucide React for icon library
+- class-variance-authority for component variants
+- clsx and tailwind-merge for className utilities
+
+**Data Visualization**
+- Recharts (^2.13.3) - Charts and data visualization components
+
+### Development Tools
+
+**Type Safety & Validation**
+- TypeScript with strict configuration
+- Zod for runtime schema validation
+- Next.js TypeScript plugin for enhanced IDE support
+
+**Code Quality**
+- ESLint with Next.js configuration
+- PostCSS for CSS processing
+- Prettier (implied by v0.app origin)
+
+### Deployment & Infrastructure
+
+**Vercel Platform**
+- Automatic deployments from v0.app
+- Serverless function execution for API routes
+- Edge middleware for authentication
+- Static asset optimization and CDN
+
+**Build Configuration**
+- Next.js 15 with App Router
+- React Server Components enabled
+- Incremental builds for performance
+- TypeScript strict mode compilation
